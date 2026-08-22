@@ -30,12 +30,17 @@ async function initAdmin() {
 }
 
 function renderData(data) {
-  // 1. ملء قائمة الأقسام
-  const select = document.getElementById('bookCat');
-  if (select) {
-    select.innerHTML = '';
-    (data.categories || []).forEach(cat => {
-      select.innerHTML += `<option value="${cat}">${cat}</option>`;
+  // 1. ملء مربعات اختيار الأقسام (Checkboxes) لاختيار أكثر من قسم للكتاب الواحد
+  const catListContainer = document.getElementById('categoriesCheckboxList');
+  if (catListContainer) {
+    catListContainer.innerHTML = '';
+    (data.categories || []).forEach((cat, index) => {
+      catListContainer.innerHTML += `
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: #334155;">
+          <input type="checkbox" name="bookCategories" value="${cat}" ${index === 0 ? 'checked' : ''}>
+          <span>${cat}</span>
+        </label>
+      `;
     });
   }
 
@@ -47,6 +52,7 @@ function renderData(data) {
       booksContainer.innerHTML = '<p style="color:#888; font-size:13px; grid-column: 1/-1; text-align:center; padding:20px;">لا توجد كتب متوفرة حالياً في المتجر.</p>';
     } else {
       data.books.forEach(book => {
+        const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
         booksContainer.innerHTML += `
           <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
             <div>
@@ -54,7 +60,7 @@ function renderData(data) {
               <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
               <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
               <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
-              <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">${book.category}</span>
+              <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">📂 ${catsDisplay}</span>
             </div>
 
             <!-- أزرار التحكم في الكمية والحذف -->
@@ -178,23 +184,38 @@ async function addCategory() {
   document.getElementById('newCatName').value = '';
 }
 
+// حفظ الكتاب مع إرسال الأقسام المتعددة
 async function saveBook() {
   const title = document.getElementById('bookTitle').value.trim();
   const author = document.getElementById('bookAuthor').value.trim();
-  const category = document.getElementById('bookCat').value;
   const price = document.getElementById('bookPrice').value;
   const quantity = document.getElementById('bookQty').value;
   const description = document.getElementById('bookDesc')?.value.trim() || '';
 
+  // التقاط الأقسام المحددة
+  const checkedBoxes = document.querySelectorAll('input[name="bookCategories"]:checked');
+  const selectedCategories = Array.from(checkedBoxes).map(cb => cb.value);
+
   if (!title || !price || !currentImageBase64) {
     return alert('يرجى إدخال عنوان الكتاب والسعر واختيار صورة الغلاف');
+  }
+
+  if (selectedCategories.length === 0) {
+    return alert('يرجى اختيار قسم واحد على الأقل للكتاب');
   }
 
   await fetch('/api/books', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      title, author, category, price, quantity, description, image: currentImageBase64
+      title,
+      author,
+      categories: selectedCategories,
+      category: selectedCategories[0],
+      price,
+      quantity,
+      description,
+      image: currentImageBase64
     })
   });
 
@@ -204,7 +225,7 @@ async function saveBook() {
   if (document.getElementById('bookDesc')) document.getElementById('bookDesc').value = '';
   document.getElementById('bookImageFile').value = '';
   currentImageBase64 = '';
-  alert('تمت إضافة الكتاب بنجاح إلى المتجر!');
+  alert('تمت إضافة الكتاب بنجاح ونشره في الأقسام المحددة!');
 }
 
 initAdmin();
