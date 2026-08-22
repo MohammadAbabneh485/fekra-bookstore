@@ -246,25 +246,56 @@ function refreshMyOrdersView() {
 
 async function cancelFullOrder(orderId) {
   if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم استرجاع الكتب إلى المتجر فوراً.')) return;
-  const res = await fetch('/api/orders/cancel', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId })
-  });
-  const data = await res.json();
-  alert(data.message || 'تمت العملية');
+  
+  try {
+    const res = await fetch('/api/orders/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId })
+    });
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      alert('✅ تم إلغاء الطلب بنجاح واسترجاع الكتب إلى المتجر');
+      // تحديث قائمة الطلبات محلياً وفورياً
+      allOrders = allOrders.filter(o => o.id !== orderId);
+      searchMyOrders();
+    } else {
+      alert(data.message || 'حدث خطأ أثناء محاولة الإلغاء');
+    }
+  } catch (err) {
+    alert('تعذر الاتصال بالسيرفر، يرجى المحاولة بعد لحظات');
+  }
 }
 
 async function removeItemFromOrder(orderId, itemId) {
   if (!confirm('هل تريد إزالة هذا الكتاب من الطلب؟ سيتم إعادة الكتاب للمتجر وتعديل قيمة الفاتورة.')) return;
-  const res = await fetch('/api/orders/remove-item', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId, itemId })
-  });
-  const data = await res.json();
-  if (data.success) alert('تم تعديل الطلب وإعادة الكتاب للمخزون');
-  else alert(data.message);
+  
+  try {
+    const res = await fetch('/api/orders/remove-item', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, itemId })
+    });
+    const data = await res.json();
+    
+    if (res.ok && data.success) {
+      alert('✅ تم تعديل الطلب وإعادة الكتاب للمخزون');
+      const orderIdx = allOrders.findIndex(o => o.id === orderId);
+      if (orderIdx !== -1) {
+        if (data.order && data.order.items && data.order.items.length > 0) {
+          allOrders[orderIdx] = data.order;
+        } else {
+          allOrders.splice(orderIdx, 1);
+        }
+      }
+      searchMyOrders();
+    } else {
+      alert(data.message || 'حدث خطأ أثناء التعديل');
+    }
+  } catch (err) {
+    alert('تعذر الاتصال بالسيرفر، يرجى المحاولة بعد لحظات');
+  }
 }
 
 init();
