@@ -1,49 +1,81 @@
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap');
 
 :root {
-  --primary: #1A365D;
+  --primary: #0F172A;
+  --secondary: #1E293B;
   --gold: #D4AF37;
-  --gold-light: #F4E8C1;
-  --bg: #FDFBF7;
-  --card-bg: #FFFFFF;
-  --text: #2D3748;
+  --gold-hover: #B8972E;
+  --gold-subtle: #FAF5E6;
+  --bg-main: #F8FAFC;
+  --surface: #FFFFFF;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
   --border: #E2E8F0;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
+  --radius: 14px;
 }
 
 * { box-sizing: border-box; font-family: 'Tajawal', sans-serif; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); direction: rtl; min-height: 100vh; }
+body { background: var(--bg-main); color: var(--text-main); direction: rtl; min-height: 100vh; display: flex; flex-direction: column; }
 
-.header { background: #fff; border-bottom: 2px solid var(--gold-light); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; }
-.logo-container { display: flex; align-items: center; gap: 15px; }
-.logo-img { width: 55px; height: 55px; border-radius: 50%; object-fit: contain; }
-.logo-text h1 { font-size: 22px; color: var(--primary); font-weight: 800; }
-.logo-text p { font-size: 11px; color: #718096; }
+/* الهيدر */
+.header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 28px; position: sticky; top: 0; z-index: 90; box-shadow: var(--shadow-sm); }
+.header-inner { max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.logo-container { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+.logo-img { width: 52px; height: 52px; border-radius: 12px; object-fit: contain; box-shadow: 0 2px 8px rgba(212,175,55,0.2); }
+.logo-text h1 { font-size: 22px; color: var(--primary); font-weight: 900; letter-spacing: -0.5px; }
+.logo-text p { font-size: 11px; color: var(--gold-hover); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
 
-.slogan-banner { background: #fff8e7; border-bottom: 1px solid #f0dfa8; padding: 12px 20px; text-align: center; color: #78350f; font-size: 14px; font-weight: 600; }
+/* البانر التعريفي */
+.hero-banner { background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); color: #fff; padding: 45px 20px; text-align: center; border-bottom: 3px solid var(--gold); }
+.hero-inner { max-width: 800px; margin: 0 auto; }
+.hero-tag { display: inline-block; background: rgba(212, 175, 55, 0.15); color: var(--gold); border: 1px solid rgba(212,175,55,0.4); padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 15px; }
+.hero-title { font-size: 22px; font-weight: 800; line-height: 1.6; color: #F1F5F9; }
+.hero-sub { color: #94A3B8; font-size: 14px; margin-top: 10px; }
 
-.container { max-width: 1200px; margin: 25px auto; padding: 0 15px; }
-.categories-bar { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 25px; }
-.cat-btn { padding: 8px 18px; background: #fff; border: 1px solid var(--border); border-radius: 25px; cursor: pointer; font-weight: 600; white-space: nowrap; transition: 0.2s; }
-.cat-btn.active, .cat-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* شريط البحث والأقسام */
+.controls-container { max-width: 1200px; margin: -22px auto 25px; padding: 0 20px; position: relative; z-index: 10; }
+.search-wrapper { background: var(--surface); border-radius: 50px; padding: 6px 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; max-width: 600px; margin: 0 auto 20px; }
+.search-input { width: 100%; border: none; outline: none; font-size: 15px; padding: 8px 4px; color: var(--text-main); }
+.categories-bar { display: flex; gap: 10px; overflow-x: auto; padding: 5px 2px 15px; scrollbar-width: none; justify-content: center; flex-wrap: wrap; }
+.cat-btn { padding: 9px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 30px; cursor: pointer; font-weight: 700; font-size: 13px; color: var(--text-muted); transition: all 0.25s ease; box-shadow: var(--shadow-sm); white-space: nowrap; }
+.cat-btn.active, .cat-btn:hover { background: var(--gold); color: #fff; border-color: var(--gold); box-shadow: 0 4px 12px rgba(212,175,55,0.3); transform: translateY(-2px); }
 
-.books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
-.book-card { background: #fff; border-radius: 12px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
-.book-card:hover { transform: translateY(-4px); box-shadow: 0 6px 15px rgba(0,0,0,0.06); }
-.book-img { width: 100%; height: 260px; object-fit: cover; background: #eee; }
-.book-info { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
-.book-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: var(--primary); }
-.book-author { font-size: 13px; color: #718096; margin-bottom: 8px; }
-.book-price { font-size: 16px; font-weight: 800; color: #b45309; }
-.add-btn { width: 100%; margin-top: 10px; padding: 9px; background: var(--gold); border: none; color: #fff; font-weight: 700; border-radius: 8px; cursor: pointer; }
-.add-btn:hover { background: #b89628; }
+/* شبكة الكتب */
+.container { max-width: 1200px; margin: 0 auto 50px; padding: 0 20px; width: 100%; flex: 1; }
+.books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 24px; }
+.book-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: var(--shadow-sm); position: relative; }
+.book-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); border-color: #CBD5E1; }
+.img-wrapper { width: 100%; height: 280px; position: relative; background: #F1F5F9; overflow: hidden; }
+.book-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+.book-card:hover .book-img { transform: scale(1.04); }
+.badge-cat { position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+.book-info { padding: 18px; display: flex; flex-direction: column; flex-grow: 1; justify-content: space-between; }
+.book-title { font-weight: 800; font-size: 16px; color: var(--primary); margin-bottom: 4px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.book-author { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; font-weight: 500; }
+.book-meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: auto; padding-top: 12px; border-top: 1px solid #F1F5F9; }
+.book-price { font-size: 19px; font-weight: 900; color: #B45309; }
+.book-price span { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 2px; }
+.add-btn { width: 100%; margin-top: 12px; padding: 11px; background: var(--primary); border: none; color: #fff; font-weight: 700; font-size: 14px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+.add-btn:hover { background: var(--gold); color: #fff; box-shadow: 0 4px 12px rgba(212,175,55,0.3); }
 
-.cart-float { position: fixed; bottom: 25px; left: 25px; background: var(--primary); color: #fff; padding: 14px 22px; border-radius: 50px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.2); display: flex; gap: 10px; align-items: center; z-index: 100; }
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 200; padding: 15px; }
-.modal-content { background: #fff; border-radius: 14px; width: 100%; max-width: 500px; padding: 25px; max-height: 90vh; overflow-y: auto; }
+/* زر السلة العائم */
+.cart-float { position: fixed; bottom: 30px; left: 30px; background: var(--primary); color: #fff; padding: 14px 24px; border-radius: 50px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(15,23,42,0.35); display: flex; gap: 12px; align-items: center; z-index: 100; border: 2px solid var(--gold); transition: all 0.2s ease; }
+.cart-float:hover { transform: scale(1.05); }
+.cart-count { background: #EF4444; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 12px; }
 
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 5px; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; }
-.checkout-summary { background: #f8fafc; border: 1px dashed var(--border); padding: 12px; border-radius: 8px; margin: 15px 0; }
-.bill-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; }
-.bill-row.total { font-weight: 800; font-size: 17px; color: var(--primary); border-top: 1px solid #cbd5e1; padding-top: 8px; margin-top: 8px; }
+/* المودال */
+.modal { position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 200; padding: 20px; }
+.modal-content { background: var(--surface); border-radius: 18px; width: 100%; max-width: 480px; padding: 26px; box-shadow: var(--shadow-lg); border: 1px solid var(--border); max-height: 90vh; overflow-y: auto; }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--secondary); margin-bottom: 6px; }
+.form-group input, .form-group textarea { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; outline: none; transition: 0.2s; }
+.form-group input:focus, .form-group textarea:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
+.checkout-summary { background: var(--gold-subtle); border: 1px dashed var(--gold); padding: 16px; border-radius: 12px; margin: 18px 0; }
+.bill-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #475569; }
+.bill-row.total { font-weight: 900; font-size: 18px; color: var(--primary); border-top: 1px solid #E2D9C2; padding-top: 10px; margin-top: 10px; }
+
+/* الفوتر */
+.footer { background: var(--surface); border-top: 1px solid var(--border); padding: 20px; text-align: center; font-size: 13px; color: var(--text-muted); margin-top: auto; }
