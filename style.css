@@ -79,3 +79,19 @@ body { background: var(--bg-main); color: var(--text-main); direction: rtl; min-
 
 /* الفوتر */
 .footer { background: var(--surface); border-top: 1px solid var(--border); padding: 20px; text-align: center; font-size: 13px; color: var(--text-muted); margin-top: auto; }
+
+.my-orders-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--gold);
+  color: var(--primary);
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.my-orders-btn:hover {
+  background: var(--gold);
+  color: #fff;
+}
