@@ -11,8 +11,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
+app.use(express.static(__dirname));
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 // قراءة البيانات
@@ -36,11 +35,11 @@ function saveData(data) {
 
 // مسارات الصفحات
 app.get('/shop', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'shop.html'));
+  res.sendFile(path.join(__dirname, 'shop.html'));
 });
 
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 // APIs
