@@ -12,6 +12,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
+
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 // قراءة البيانات
@@ -79,7 +80,7 @@ app.post('/api/books', (req, res) => {
   res.json({ success: true, book: newBook });
 });
 
-// تأكيد الطلب وخصم المخزون
+// تأكيد الطلب وحفظ التاريخ والوقت
 app.post('/api/order', (req, res) => {
   const { customerName, phone, address, city, items } = req.body;
   const data = loadData();
@@ -92,8 +93,12 @@ app.post('/api/order', (req, res) => {
     }
   });
 
-  // حذف أو إخفاء الكتب التي أصبحت 0
+  // إخفاء الكتب المنتهية
   data.books = data.books.filter(b => b.quantity > 0);
+
+  const now = new Date();
+  const dateKey = now.toLocaleDateString('ar-JO');
+  const timeKey = now.toLocaleTimeString('ar-JO', { hour: '2-digit', minute: '2-digit' });
 
   const newOrder = {
     id: 'ORD-' + Date.now().toString().slice(-6),
@@ -104,20 +109,22 @@ app.post('/api/order', (req, res) => {
     items,
     deliveryFee: 2,
     total: items.reduce((sum, i) => sum + (i.price * i.qty), 0) + 2,
-    createdAt: new Date().toLocaleString('ar-JO')
+    date: dateKey,
+    time: timeKey,
+    status: 'جديد',
+    createdAt: `${dateKey} - ${timeKey}`
   };
 
   data.orders.unshift(newOrder);
   saveData(data);
 
-  // إشعار فوري لجميع المتصفحات (شاشة العميل وشاشة الأدمن)
   io.emit('data_updated', data);
   io.emit('new_order', newOrder);
 
   res.json({ success: true, order: newOrder });
 });
 
-// تحديث حالة الطلب
+// تحديث حالة الطلب (تم التجهيز / جديد)
 app.post('/api/orders/status', (req, res) => {
   const { orderId, status } = req.body;
   const data = loadData();
@@ -134,6 +141,5 @@ app.post('/api/orders/status', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/shop`);
-  console.log(`Admin panel at http://localhost:${PORT}/admin`);
+  console.log(`Server running on port ${PORT}`);
 });
