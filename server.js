@@ -151,18 +151,34 @@ app.post('/api/order', (req, res) => {
 });
 
 // دالة مساعدة لإعادة الكتب للمخزون
+// دالة مساعدة لإعادة الكتب للمخزون مع الحفاظ على كامل الأقسام
 function restoreBookInventory(data, item) {
   const existingBook = data.books.find(b => b.id === item.id);
   if (existingBook) {
     existingBook.quantity += item.qty;
+    // التأكد من استعادة وتوحيد الأقسام إن لم تكن موجودة
+    if (item.categories && Array.isArray(item.categories)) {
+      existingBook.categories = item.categories;
+    }
   } else {
-    // إعادة الكتاب المنتهي إلى المتجر بكامل بياناته
+    // تحديد مصفوفة الأقسام بدقة
+    let bookCategories = [];
+    if (Array.isArray(item.categories) && item.categories.length > 0) {
+      bookCategories = item.categories;
+    } else if (item.category) {
+      bookCategories = [item.category];
+    } else {
+      bookCategories = ['عام'];
+    }
+
+    // إعادة الكتاب المنتهي إلى المتجر بكامل أقسامه المتعددة
     data.books.push({
       id: item.id,
       title: item.title,
       author: item.author || 'غير محدد',
       price: item.price,
-      category: item.category || 'عام',
+      categories: bookCategories,
+      category: bookCategories[0],
       quantity: item.qty,
       image: item.image || 'logo.jpg.jpeg',
       description: item.description || ''
@@ -170,30 +186,55 @@ function restoreBookInventory(data, item) {
   }
 }
 
-// إلغاء الطلب بالكامل
-app.post('/api/orders/cancel', (req, res) => {
-  const { orderId } = req.body;
+// تأكيد الطلب مع حفظ مصفوفة الأقسام داخل كل عنصر في الطلب
+app.post('/api/order', (req, res) => {
+  const { customerName, phone, address, city, items } = req.body;
   const data = loadData();
-  const orderIndex = data.orders.findIndex(o => o.id === orderId);
 
-  if (orderIndex === -1) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+  // تجهيز عناصر الطلب مع الاحتفاظ بكافة الأقسام
+  const detailedItems = items.map(orderItem => {
+    const book = data.books.find(b => b.id === orderItem.id);
+    if (book) {
+      book.quantity -= orderItem.qty;
+      return {
+        ...orderItem,
+        categories: book.categories || (book.category ? [book.category] : ['عام']),
+        category: book.category || (book.categories ? book.categories[0] : 'عام')
+      };
+    }
+    return orderItem;
+  });
 
-  const order = data.orders[orderIndex];
-  if (order.status === 'تم التجهيز') {
-    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه وتغليفه بالفعل' });
-  }
+  // إخفاء الكتب التي أصبحت كميتها 0
+  data.books = data.books.filter(b => b.quantity > 0);
 
-  // إعادة جميع الكتب للمخزون
-  order.items.forEach(item => restoreBookInventory(data, item));
+  const now = new Date();
+  const dateKey = now.toLocaleDateString('ar-JO');
+  const timeKey = now.toLocaleTimeString('ar-JO', { hour: '2-digit', minute: '2-digit' });
 
-  // حذف أو تعديل حالة الطلب لـ "ملغي"
-  data.orders.splice(orderIndex, 1);
+  const newOrder = {
+    id: 'ORD-' + Date.now().toString().slice(-6),
+    customerName,
+    phone,
+    address,
+    city,
+    items: detailedItems,
+    deliveryFee: 2,
+    total: detailedItems.reduce((sum, i) => sum + (i.price * i.qty), 0) + 2,
+    date: dateKey,
+    time: timeKey,
+    status: 'جديد',
+    createdAt: `${dateKey} - ${timeKey}`
+  };
+
+  data.orders.unshift(newOrder);
   saveData(data);
 
   io.emit('data_updated', data);
-  res.json({ success: true, message: 'تم إلغاء الطلب واسترجاع الكتب للمتجر' });
-});
+  io.emit('new_order', newOrder);
 
+  res.json({ success: true, order: newOrder });
+});
 // تعديل الطلب بحذف عنصر واحد منه
 app.post('/api/orders/remove-item', (req, res) => {
   const { orderId, itemId } = req.body;
