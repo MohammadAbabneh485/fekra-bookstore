@@ -43,23 +43,37 @@ app.get('/api/data', (req, res) => res.json(loadData()));
 
 // إضافة قسم
 // تعديل كمية كتاب (زيادة أو تقليل)
-app.post('/api/books/quantity', (req, res) => {
-  const { bookId, change } = req.body; // change: +1 أو -1
+// إضافة كتاب
+app.post('/api/books', (req, res) => {
+  const { title, author, price, categories, category, quantity, image, description } = req.body;
   const data = loadData();
-  const book = data.books.find(b => b.id === bookId);
-
-  if (!book) return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
-
-  book.quantity = (parseInt(book.quantity) || 0) + parseInt(change);
-
-  // إذا أصبحت الكمية 0 أو أقل يتم حذف الكتاب من قائمة المعروض
-  if (book.quantity <= 0) {
-    data.books = data.books.filter(b => b.id !== bookId);
+  
+  // دعم الأقسام المتعددة مع التوافقية
+  let selectedCategories = [];
+  if (Array.isArray(categories) && categories.length > 0) {
+    selectedCategories = categories;
+  } else if (category) {
+    selectedCategories = [category];
+  } else {
+    selectedCategories = ['عام'];
   }
 
+  const newBook = {
+    id: Date.now().toString(),
+    title,
+    author: author || 'غير محدد',
+    price: parseFloat(price),
+    categories: selectedCategories,
+    category: selectedCategories[0], // توافقية
+    quantity: parseInt(quantity) || 1,
+    image,
+    description: description || ''
+  };
+  
+  data.books.push(newBook);
   saveData(data);
   io.emit('data_updated', data);
-  res.json({ success: true, books: data.books });
+  res.json({ success: true, book: newBook });
 });
 
 // حذف كتاب نهائياً
