@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مكتبة فكرة | متجر بيع وتدوير الكتب المستعملة</title>
+  <title>مكتبة فكرة | متجر بيع وتدوير الكتب</title>
   <link rel="stylesheet" href="style.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -19,11 +19,13 @@
           <p>Fekra Books</p>
         </div>
       </a>
-      <div style="font-size: 13px; font-weight: 700; color: #64748B;">📚 تدوير المعرفة</div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button onclick="openMyOrdersModal()" class="my-orders-btn">📦 طلباتي</button>
+      </div>
     </div>
   </header>
 
-  <!-- البانر التعريفي مع الشعار المعتمد -->
+  <!-- البانر التعريفي -->
   <section class="hero-banner">
     <div class="hero-inner">
       <span class="hero-tag">✨ مبادرة القراءة المستدامة</span>
@@ -59,7 +61,7 @@
     <span class="cart-count" id="cartCount">0</span>
   </div>
 
-  <!-- نافذة تأكيد الطلب -->
+  <!-- مودال تأكيد الطلب -->
   <div class="modal" id="cartModal">
     <div class="modal-content">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
@@ -84,6 +86,23 @@
         <button class="add-btn" style="background:#16A34A; flex:1; margin-top:0;" onclick="submitOrder()">تثبيت الطلب الآن</button>
         <button class="add-btn" style="background:#94A3B8; width:80px; margin-top:0;" onclick="closeCart()">إغلاق</button>
       </div>
+    </div>
+  </div>
+
+  <!-- مودال خانة طلباتي -->
+  <div class="modal" id="myOrdersModal">
+    <div class="modal-content" style="max-width: 520px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--primary);">📦 متابعة طلباتي</h3>
+        <button onclick="closeMyOrdersModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#94a3b8;">✕</button>
+      </div>
+
+      <div class="form-group" style="display:flex; gap:8px;">
+        <input type="tel" id="trackPhoneInput" placeholder="أدخل رقم هاتفك لعرض طلباتك..." style="flex:1;">
+        <button onclick="searchMyOrders()" style="background:var(--primary); color:#fff; border:none; border-radius:10px; padding:0 16px; font-weight:700; cursor:pointer;">بحث</button>
+      </div>
+
+      <div id="myOrdersContent" style="margin-top:15px;"></div>
     </div>
   </div>
 
