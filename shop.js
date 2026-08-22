@@ -2,6 +2,7 @@ const socket = io();
 let allBooks = [];
 let cart = [];
 let currentCategory = 'all';
+let searchQuery = '';
 
 socket.on('data_updated', (data) => {
   allBooks = data.books || [];
@@ -19,23 +20,36 @@ async function init() {
 
 function renderCategories(categories) {
   const bar = document.getElementById('categoriesBar');
-  bar.innerHTML = `<button class="cat-btn ${currentCategory==='all'?'active':''}" onclick="filterCategory('all')">جميع الكتب</button>`;
+  bar.innerHTML = `<button class="cat-btn ${currentCategory==='all'?'active':''}" onclick="filterCategory('all', event)">جميع الكتب</button>`;
   categories.forEach(cat => {
-    bar.innerHTML += `<button class="cat-btn ${currentCategory===cat?'active':''}" onclick="filterCategory('${cat}')">${cat}</button>`;
+    bar.innerHTML += `<button class="cat-btn ${currentCategory===cat?'active':''}" onclick="filterCategory('${cat}', event)">${cat}</button>`;
   });
 }
 
-function filterCategory(cat) {
+function filterCategory(cat, e) {
   currentCategory = cat;
   document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
+  if (e && e.target) e.target.classList.add('active');
+  renderBooks();
+}
+
+function handleSearch() {
+  searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
   renderBooks();
 }
 
 function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
-  const filtered = currentCategory === 'all' ? allBooks : allBooks.filter(b => b.category === currentCategory);
+  
+  let filtered = currentCategory === 'all' ? allBooks : allBooks.filter(b => b.category === currentCategory);
+  
+  if (searchQuery) {
+    filtered = filtered.filter(b => 
+      (b.title && b.title.toLowerCase().includes(searchQuery)) ||
+      (b.author && b.author.toLowerCase().includes(searchQuery))
+    );
+  }
 
   grid.innerHTML = '';
   if (filtered.length === 0) {
@@ -47,16 +61,21 @@ function renderBooks() {
   filtered.forEach(book => {
     grid.innerHTML += `
       <div class="book-card">
-        <img src="${book.image || 'https://via.placeholder.com/250x300?text=Fekra'}" class="book-img" alt="${book.title}">
+        <div class="img-wrapper">
+          <span class="badge-cat">${book.category}</span>
+          <img src="${book.image || 'logo.jpg.jpeg'}" class="book-img" alt="${book.title}">
+        </div>
         <div class="book-info">
           <div>
-            <div class="book-title">${book.title}</div>
-            <div class="book-author">${book.author}</div>
-            ${book.description ? `<p style="font-size:12px; color:#666; margin-bottom:8px;">${book.description}</p>` : ''}
+            <h4 class="book-title">${book.title}</h4>
+            <div class="book-author">${book.author || 'مؤلف غير محدد'}</div>
           </div>
           <div>
-            <div class="book-price">${book.price} د.أ</div>
-            <button class="add-btn" onclick="addToCart('${book.id}')">أضف للسلة</button>
+            <div class="book-meta">
+              <span style="font-size:12px; color:#64748B;">السعر:</span>
+              <div class="book-price">${book.price} <span>د.أ</span></div>
+            </div>
+            <button class="add-btn" onclick="addToCart('${book.id}')">🛒 إضافة إلى السلة</button>
           </div>
         </div>
       </div>
@@ -83,7 +102,7 @@ function updateCartCount() {
 }
 
 function openCart() {
-  if (cart.length === 0) return alert('السلة فارغة!');
+  if (cart.length === 0) return alert('السلة فارغة حالياً');
   const list = document.getElementById('cartItemsList');
   list.innerHTML = '';
   let subTotal = 0;
@@ -91,9 +110,9 @@ function openCart() {
   cart.forEach(item => {
     subTotal += item.price * item.qty;
     list.innerHTML += `
-      <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:4px;">
-        <span>${item.title} (${item.qty})</span>
-        <b>${item.price * item.qty} د.أ</b>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:14px;">
+        <span>📖 ${item.title} (x${item.qty})</span>
+        <b style="color:#b45309;">${item.price * item.qty} د.أ</b>
       </div>
     `;
   });
@@ -113,7 +132,7 @@ async function submitOrder() {
   const city = document.getElementById('custCity').value.trim();
   const address = document.getElementById('custAddress').value.trim();
 
-  if (!customerName || !phone || !city) return alert('يرجى تعبئة الاسم ورقم الهاتف والمنطقة');
+  if (!customerName || !phone || !city) return alert('يرجى كتابة الاسم ورقم الهاتف والمحافظة/المنطقة');
 
   const orderData = { customerName, phone, city, address, items: cart };
 
@@ -125,7 +144,7 @@ async function submitOrder() {
 
   const result = await res.json();
   if (result.success) {
-    alert('تم تثبيت طلبك بنجاح! شكراً لاختيارك مكتبة فكرة.');
+    alert('🎉 تم تأكيد طلبك بنجاح! سنتواصل معك قريباً لتوصيل الكتب.');
     cart = [];
     updateCartCount();
     closeCart();
