@@ -117,6 +117,21 @@ app.post('/api/order', (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
+// تحديث حالة الطلب
+app.post('/api/orders/status', (req, res) => {
+  const { orderId, status } = req.body;
+  const data = loadData();
+  const order = data.orders.find(o => o.id === orderId);
+  if (order) {
+    order.status = status;
+    saveData(data);
+    io.emit('data_updated', data);
+    res.json({ success: true, order });
+  } else {
+    res.status(404).json({ success: false, message: 'Order not found' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}/shop`);
