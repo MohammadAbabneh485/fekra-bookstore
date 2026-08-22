@@ -103,7 +103,7 @@ app.post('/api/books', (req, res) => {
   data.books.push(newBook);
   saveData(data);
   io.emit('data_updated', data);
-  res.json({ success: true, book: newBook });
+  res.json({ success: true, book: newBook }); 
 });
 
 // تأكيد الطلب
