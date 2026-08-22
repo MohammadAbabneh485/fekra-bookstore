@@ -42,17 +42,36 @@ app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html'))
 app.get('/api/data', (req, res) => res.json(loadData()));
 
 // إضافة قسم
-app.post('/api/categories', (req, res) => {
-  const { name } = req.body;
+// تعديل كمية كتاب (زيادة أو تقليل)
+app.post('/api/books/quantity', (req, res) => {
+  const { bookId, change } = req.body; // change: +1 أو -1
   const data = loadData();
-  if (name && !data.categories.includes(name)) {
-    data.categories.push(name);
-    saveData(data);
-    io.emit('data_updated', data);
+  const book = data.books.find(b => b.id === bookId);
+
+  if (!book) return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
+
+  book.quantity = (parseInt(book.quantity) || 0) + parseInt(change);
+
+  // إذا أصبحت الكمية 0 أو أقل يتم حذف الكتاب من قائمة المعروض
+  if (book.quantity <= 0) {
+    data.books = data.books.filter(b => b.id !== bookId);
   }
-  res.json({ success: true, categories: data.categories });
+
+  saveData(data);
+  io.emit('data_updated', data);
+  res.json({ success: true, books: data.books });
 });
 
+// حذف كتاب نهائياً
+app.post('/api/books/delete', (req, res) => {
+  const { bookId } = req.body;
+  const data = loadData();
+  data.books = data.books.filter(b => b.id !== bookId);
+
+  saveData(data);
+  io.emit('data_updated', data);
+  res.json({ success: true, message: 'تم حذف الكتاب بنجاح' });
+});
 // إضافة كتاب
 app.post('/api/books', (req, res) => {
   const { title, author, price, category, quantity, image, description } = req.body;
