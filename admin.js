@@ -39,20 +39,36 @@ function renderData(data) {
     });
   }
 
-  // 2. ملء الكتب المتوفرة
+  // 2. ملء الكتب المتوفرة مع أزرار التحكم بالكمية والحذف
   const booksContainer = document.getElementById('adminBooksList');
   if (booksContainer) {
     booksContainer.innerHTML = '';
     if (!data.books || data.books.length === 0) {
-      booksContainer.innerHTML = '<p style="color:#888; font-size:13px; grid-column: 1/-1;">لا توجد كتب متوفرة حالياً.</p>';
+      booksContainer.innerHTML = '<p style="color:#888; font-size:13px; grid-column: 1/-1; text-align:center; padding:20px;">لا توجد كتب متوفرة حالياً في المتجر.</p>';
     } else {
       data.books.forEach(book => {
         booksContainer.innerHTML += `
-          <div style="border:1px solid #E2E8F0; border-radius:10px; padding:10px; text-align:center; background:#fff; box-shadow:0 2px 4px rgba(0,0,0,0.03);">
-            <img src="${book.image || 'logo.jpg.jpeg'}" style="width:100%; height:130px; object-fit:cover; border-radius:6px;">
-            <div style="font-weight:700; margin-top:6px; font-size:13px; color:#0F172A;">${book.title}</div>
-            <div style="font-size:12px; color:#B45309; font-weight:700;">${book.price} د.أ | الكمية: ${book.quantity}</div>
-            <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block; margin-top:4px;">${book.category}</span>
+          <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <img src="${book.image || 'logo.jpg.jpeg'}" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+              <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
+              <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
+              <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
+              <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">${book.category}</span>
+            </div>
+
+            <!-- أزرار التحكم في الكمية والحذف -->
+            <div style="margin-top:12px; border-top:1px solid #F1F5F9; padding-top:10px;">
+              <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
+                <button onclick="changeBookQty('${book.id}', -1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">-</button>
+                <span style="font-size:13px; font-weight:800; color:#0F172A; min-width:60px;">الكمية: ${book.quantity}</span>
+                <button onclick="changeBookQty('${book.id}', 1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">+</button>
+              </div>
+
+              <button onclick="deleteBook('${book.id}', '${book.title}')" style="width:100%; background:#FEE2E2; color:#DC2626; border:none; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; transition:0.2s;">
+                🗑️ حذف الكتاب نهائياً
+              </button>
+            </div>
           </div>
         `;
       });
@@ -122,6 +138,25 @@ function renderData(data) {
     dayBlock += `</div>`;
     ordersContainer.innerHTML += dayBlock;
   }
+}
+
+// تعديل الكمية (+ أو -)
+async function changeBookQty(bookId, change) {
+  await fetch('/api/books/quantity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookId, change })
+  });
+}
+
+// حذف الكتاب نهائياً
+async function deleteBook(bookId, title) {
+  if (!confirm(`هل أنت متأكد من حذف كتاب "${title}" نهائياً من المتجر؟`)) return;
+  await fetch('/api/books/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookId })
+  });
 }
 
 async function toggleOrderStatus(orderId, newStatus) {
