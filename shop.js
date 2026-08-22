@@ -1,19 +1,23 @@
 const socket = io();
 let allBooks = [];
+let allOrders = [];
 let cart = [];
 let currentCategory = 'all';
 let searchQuery = '';
 
 socket.on('data_updated', (data) => {
   allBooks = data.books || [];
+  allOrders = data.orders || [];
   renderCategories(data.categories || []);
   renderBooks();
+  refreshMyOrdersView();
 });
 
 async function init() {
   const res = await fetch('/api/data');
   const data = await res.json();
   allBooks = data.books || [];
+  allOrders = data.orders || [];
   renderCategories(data.categories || []);
   renderBooks();
 }
@@ -144,11 +148,112 @@ async function submitOrder() {
 
   const result = await res.json();
   if (result.success) {
-    alert('🎉 تم تأكيد طلبك بنجاح! سنتواصل معك قريباً لتوصيل الكتب.');
+    localStorage.setItem('fekra_last_phone', phone);
+    alert('🎉 تم تأكيد طلبك بنجاح! يمكنك متابعة وتعديل طلبك من زر "طلباتي" في الأعلى.');
     cart = [];
     updateCartCount();
     closeCart();
   }
+}
+
+// ---------------- منطق متابعة وتعديل وإلغاء طلباتي ---------------- //
+
+function openMyOrdersModal() {
+  const savedPhone = localStorage.getItem('fekra_last_phone') || '';
+  if (savedPhone) {
+    document.getElementById('trackPhoneInput').value = savedPhone;
+    searchMyOrders();
+  }
+  document.getElementById('myOrdersModal').style.display = 'flex';
+}
+
+function closeMyOrdersModal() {
+  document.getElementById('myOrdersModal').style.display = 'none';
+}
+
+function searchMyOrders() {
+  const phone = document.getElementById('trackPhoneInput').value.trim();
+  const container = document.getElementById('myOrdersContent');
+  if (!phone) {
+    container.innerHTML = '<p style="color:#888; text-align:center;">يرجى كتابة رقم هاتفك للبحث عن طلباتك.</p>';
+    return;
+  }
+
+  localStorage.setItem('fekra_last_phone', phone);
+  const myOrders = allOrders.filter(o => o.phone === phone);
+
+  if (myOrders.length === 0) {
+    container.innerHTML = '<div style="text-align:center; color:#64748B; padding:20px;">لا توجد طلبات مسجلة بهذا الرقم.</div>';
+    return;
+  }
+
+  let html = '';
+  myOrders.forEach(ord => {
+    const isReady = ord.status === 'تم التجهيز';
+    html += `
+      <div style="background:#F8FAFC; border:1.5px solid ${isReady ? '#86EFAC' : '#CBD5E1'}; border-radius:12px; padding:14px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <b style="color:var(--primary); font-size:14px;">طلب: ${ord.id}</b>
+          <span style="font-size:12px; font-weight:700; padding:3px 8px; border-radius:6px; background:${isReady ? '#DCFCE7' : '#FEF3C7'}; color:${isReady ? '#166534' : '#B45309'};">
+            ${isReady ? '✅ تم التجهيز' : '⏳ قيد المراجعة'}
+          </span>
+        </div>
+
+        <div style="font-size:12px; color:#64748B; margin-bottom:8px;">
+          📅 ${ord.createdAt || ord.date} | المجموع الكلي: <b style="color:#B45309;">${ord.total} د.أ</b>
+        </div>
+
+        <div style="background:#fff; border-radius:8px; padding:8px; margin-bottom:10px; border:1px solid #E2E8F0;">
+          <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">الكتب في الطلب:</div>
+          ${ord.items.map(i => `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:4px 0; border-bottom:1px solid #F1F5F9;">
+              <span>• ${i.title} (${i.qty})</span>
+              ${!isReady ? `<button onclick="removeItemFromOrder('${ord.id}', '${i.id}')" style="background:#FEE2E2; color:#DC2626; border:none; padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">حذف</button>` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        ${isReady 
+          ? `<div style="font-size:11px; color:#166534; font-weight:700; background:#DCFCE7; padding:6px; border-radius:6px; text-align:center;">🔒 تم تجهيز الطلب للتوصيل، لا يمكن التعديل أو الإلغاء.</div>`
+          : `<div style="display:flex; justify-content:flex-end;">
+               <button onclick="cancelFullOrder('${ord.id}')" style="background:#EF4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">❌ إلغاء الطلب بالكامل</button>
+             </div>`
+        }
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function refreshMyOrdersView() {
+  const modal = document.getElementById('myOrdersModal');
+  if (modal && modal.style.display === 'flex') {
+    searchMyOrders();
+  }
+}
+
+async function cancelFullOrder(orderId) {
+  if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم استرجاع الكتب إلى المتجر فوراً.')) return;
+  const res = await fetch('/api/orders/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId })
+  });
+  const data = await res.json();
+  alert(data.message || 'تمت العملية');
+}
+
+async function removeItemFromOrder(orderId, itemId) {
+  if (!confirm('هل تريد إزالة هذا الكتاب من الطلب؟ سيتم إعادة الكتاب للمتجر وتعديل قيمة الفاتورة.')) return;
+  const res = await fetch('/api/orders/remove-item', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId, itemId })
+  });
+  const data = await res.json();
+  if (data.success) alert('تم تعديل الطلب وإعادة الكتاب للمخزون');
+  else alert(data.message);
 }
 
 init();
