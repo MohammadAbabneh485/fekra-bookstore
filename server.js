@@ -35,18 +35,11 @@ function saveData(data) {
 }
 
 // مسارات الصفحات
-app.get('/shop', (req, res) => {
-  res.sendFile(path.join(__dirname, 'shop.html'));
-});
+app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-// APIs
-app.get('/api/data', (req, res) => {
-  res.json(loadData());
-});
+// جلب البيانات
+app.get('/api/data', (req, res) => res.json(loadData()));
 
 // إضافة قسم
 app.post('/api/categories', (req, res) => {
@@ -80,7 +73,7 @@ app.post('/api/books', (req, res) => {
   res.json({ success: true, book: newBook });
 });
 
-// تأكيد الطلب وحفظ التاريخ والوقت
+// تأكيد الطلب
 app.post('/api/order', (req, res) => {
   const { customerName, phone, address, city, items } = req.body;
   const data = loadData();
@@ -93,7 +86,7 @@ app.post('/api/order', (req, res) => {
     }
   });
 
-  // إخفاء الكتب المنتهية
+  // إخفاء الكتب التي أصبحت كميتها 0
   data.books = data.books.filter(b => b.quantity > 0);
 
   const now = new Date();
@@ -124,7 +117,81 @@ app.post('/api/order', (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// تحديث حالة الطلب (تم التجهيز / جديد)
+// دالة مساعدة لإعادة الكتب للمخزون
+function restoreBookInventory(data, item) {
+  const existingBook = data.books.find(b => b.id === item.id);
+  if (existingBook) {
+    existingBook.quantity += item.qty;
+  } else {
+    // إعادة الكتاب المنتهي إلى المتجر بكامل بياناته
+    data.books.push({
+      id: item.id,
+      title: item.title,
+      author: item.author || 'غير محدد',
+      price: item.price,
+      category: item.category || 'عام',
+      quantity: item.qty,
+      image: item.image || 'logo.jpg.jpeg',
+      description: item.description || ''
+    });
+  }
+}
+
+// إلغاء الطلب بالكامل
+app.post('/api/orders/cancel', (req, res) => {
+  const { orderId } = req.body;
+  const data = loadData();
+  const orderIndex = data.orders.findIndex(o => o.id === orderId);
+
+  if (orderIndex === -1) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+
+  const order = data.orders[orderIndex];
+  if (order.status === 'تم التجهيز') {
+    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه وتغليفه بالفعل' });
+  }
+
+  // إعادة جميع الكتب للمخزون
+  order.items.forEach(item => restoreBookInventory(data, item));
+
+  // حذف أو تعديل حالة الطلب لـ "ملغي"
+  data.orders.splice(orderIndex, 1);
+  saveData(data);
+
+  io.emit('data_updated', data);
+  res.json({ success: true, message: 'تم إلغاء الطلب واسترجاع الكتب للمتجر' });
+});
+
+// تعديل الطلب بحذف عنصر واحد منه
+app.post('/api/orders/remove-item', (req, res) => {
+  const { orderId, itemId } = req.body;
+  const data = loadData();
+  const order = data.orders.find(o => o.id === orderId);
+
+  if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+  if (order.status === 'تم التجهيز') {
+    return res.status(400).json({ success: false, message: 'لا يمكن تعديل الطلب لأنه تم تجهيزه بالفعل' });
+  }
+
+  const itemIndex = order.items.findIndex(i => i.id === itemId);
+  if (itemIndex === -1) return res.status(404).json({ success: false, message: 'الكتاب غير موجود في الطلب' });
+
+  const [removedItem] = order.items.splice(itemIndex, 1);
+  restoreBookInventory(data, removedItem);
+
+  if (order.items.length === 0) {
+    // إذا حذف كل العناصر يُلغى الطلب تلقائياً
+    data.orders = data.orders.filter(o => o.id !== orderId);
+  } else {
+    // إعادة حساب مجموع الطلب
+    order.total = order.items.reduce((sum, i) => sum + (i.price * i.qty), 0) + order.deliveryFee;
+  }
+
+  saveData(data);
+  io.emit('data_updated', data);
+  res.json({ success: true, order });
+});
+
+// تحديث حالة الطلب من قبل الأدمن
 app.post('/api/orders/status', (req, res) => {
   const { orderId, status } = req.body;
   const data = loadData();
@@ -140,6 +207,4 @@ app.post('/api/orders/status', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
