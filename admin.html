@@ -37,7 +37,12 @@
         <h4>📖 إضافة كتاب جديد</h4>
         <div class="form-group" style="margin-top:10px;"><label>عنوان الكتاب *</label><input type="text" id="bookTitle" required></div>
         <div class="form-group"><label>المؤلف</label><input type="text" id="bookAuthor"></div>
-        <div class="form-group"><label>القسم *</label><select id="bookCat"></select></div>
+        <div class="form-group"><label>القسم *</label><div class="form-group">
+  <label>الأقسام (اختر قسماً واحداً أو أكثر) *</label>
+  <div id="categoriesCheckboxList" style="max-height: 140px; overflow-y: auto; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 8px; background: #FAFAFA; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+    <!-- ستظهر الأقسام هنا على شكل مربعات اختيار تلقائياً -->
+  </div>
+</div></div>
         <div class="form-group"><label>السعر (د.أ) *</label><input type="number" id="bookPrice" step="0.5" required></div>
         <div class="form-group"><label>الكمية المتوفرة</label><input type="number" id="bookQty" value="1" min="1"></div>
         <div class="form-group"><label>صورة الغلاف (من جهازك) *</label><input type="file" id="bookImageFile" accept="image/*"></div>
