@@ -46,7 +46,15 @@ function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
   
-  let filtered = currentCategory === 'all' ? allBooks : allBooks.filter(b => b.category === currentCategory);
+  // فلترة حسب ما إذا كان القسم المحدد موجوداً في مصفوفة أقسام الكتاب
+  let filtered = currentCategory === 'all' 
+    ? allBooks 
+    : allBooks.filter(b => {
+        if (Array.isArray(b.categories)) {
+          return b.categories.includes(currentCategory);
+        }
+        return b.category === currentCategory;
+      });
   
   if (searchQuery) {
     filtered = filtered.filter(b => 
@@ -63,10 +71,13 @@ function renderBooks() {
   empty.style.display = 'none';
 
   filtered.forEach(book => {
+    // تحديد القسم الأساسي أو دمج الأقسام للعرض على شارة الغلاف
+    const badgeText = Array.isArray(book.categories) ? book.categories[0] : (book.category || 'عام');
+
     grid.innerHTML += `
       <div class="book-card">
         <div class="img-wrapper">
-          <span class="badge-cat">${book.category}</span>
+          <span class="badge-cat">${badgeText}</span>
           <img src="${book.image || 'logo.jpg.jpeg'}" class="book-img" alt="${book.title}">
         </div>
         <div class="book-info">
