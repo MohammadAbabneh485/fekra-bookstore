@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مكتبة فكرة | لبيع وتدوير الكتب</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo-container">
+      <img src="logo.jpg" alt="مكتبة فكرة" class="logo-img" onerror="this.src='https://via.placeholder.com/60?text=Fekra'">
+      <div class="logo-text">
+        <h1>مكتبة فكرة</h1>
+        <p>Fekra Books</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="slogan-banner">
+    "كتب مقروءة وشبه جديدة بدون تلف أو ضرر تباع بهدف تدوير المعرفة وعدم ترك الكتاب وحيداً"
+  </div>
+
+  <div class="container">
+    <div class="categories-bar" id="categoriesBar">
+      <button class="cat-btn active" onclick="filterCategory('all')">جميع الكتب</button>
+    </div>
+
+    <div class="books-grid" id="booksGrid"></div>
+    <div id="emptyState" style="display:none; text-align:center; padding: 50px; color:#888;">
+      لا توجد كتب متاحة في هذا القسم حالياً.
+    </div>
+  </div>
+
+  <div class="cart-float" id="cartBtn" onclick="openCart()">
+    <span>🛒 السلة</span>
+    <span id="cartCount" style="background:#ef4444; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+  </div>
+
+  <!-- نافذة السلة والدفع -->
+  <div class="modal" id="cartModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom:15px;">تأكيد طلب الكتب</h3>
+      <div id="cartItemsList" style="margin-bottom:15px;"></div>
+
+      <div class="form-group"><label>الاسم الكامل</label><input type="text" id="custName" placeholder="أدخل اسمك الكريم" required></div>
+      <div class="form-group"><label>رقم الهاتف</label><input type="tel" id="custPhone" placeholder="07xxxxxxxx" required></div>
+      <div class="form-group"><label>المحافظة والمنطقة</label><input type="text" id="custCity" placeholder="مثال: إربد - الحي الشرقي" required></div>
+      <div class="form-group"><label>العنوان التفصيلي</label><input type="text" id="custAddress" placeholder="اسم الشارع، رقم البناية، معالم قريبة"></div>
+
+      <div class="checkout-summary">
+        <div class="bill-row"><span>قيمة الكتب:</span><span id="subTotal">0 د.أ</span></div>
+        <div class="bill-row"><span>رسوم التوصيل:</span><span>2 د.أ</span></div>
+        <div class="bill-row total"><span>المجموع الإجمالي:</span><span id="finalTotal">2 د.أ</span></div>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button class="add-btn" style="background:#16a34a; flex:1;" onclick="submitOrder()">تثبيت الطلب الآن</button>
+        <button class="add-btn" style="background:#94a3b8; width:80px;" onclick="closeCart()">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="shop.js"></script>
+</body>
+</html>
