@@ -3,65 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>مكتبة فكرة | لبيع وتدوير الكتب</title>
+  <title>مكتبة فكرة | متجر بيع وتدوير الكتب المستعملة</title>
   <link rel="stylesheet" href="style.css">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
+  <!-- الهيدر -->
   <header class="header">
-    <div class="logo-container">
-      <img src="logo.jpg" alt="مكتبة فكرة" class="logo-img" onerror="this.src='https://via.placeholder.com/60?text=Fekra'">
-      <div class="logo-text">
-        <h1>مكتبة فكرة</h1>
-        <p>Fekra Books</p>
-      </div>
+    <div class="header-inner">
+      <a href="/shop" class="logo-container">
+        <img src="logo.jpg.jpeg" alt="لوغو مكتبة فكرة" class="logo-img" onerror="this.src='logo.jpg'">
+        <div class="logo-text">
+          <h1>مكتبة فكرة</h1>
+          <p>Fekra Books</p>
+        </div>
+      </a>
+      <div style="font-size: 13px; font-weight: 700; color: #64748B;">📚 تدوير المعرفة</div>
     </div>
   </header>
 
-  <div class="slogan-banner">
-    "كتب مقروءة وشبه جديدة بدون تلف أو ضرر تباع بهدف تدوير المعرفة وعدم ترك الكتاب وحيداً"
-  </div>
+  <!-- البانر التعريفي مع الشعار المعتمد -->
+  <section class="hero-banner">
+    <div class="hero-inner">
+      <span class="hero-tag">✨ مبادرة القراءة المستدامة</span>
+      <h2 class="hero-title">"كتب مقروءة وشبه جديدة بدون تلف أو ضرر تباع بهدف تدوير المعرفة وعدم ترك الكتاب وحيداً"</h2>
+      <p class="hero-sub">تصفح العناوين المميزة واقتنِ كتابك المفضل ليصلك إلى باب منزلك</p>
+    </div>
+  </section>
 
-  <div class="container">
+  <!-- أدوات التصفية والبحث -->
+  <section class="controls-container">
+    <div class="search-wrapper">
+      <span style="font-size: 18px;">🔍</span>
+      <input type="text" id="searchInput" class="search-input" placeholder="ابحث باسم الكتاب أو المؤلف..." oninput="handleSearch()">
+    </div>
     <div class="categories-bar" id="categoriesBar">
-      <button class="cat-btn active" onclick="filterCategory('all')">جميع الكتب</button>
+      <button class="cat-btn active" onclick="filterCategory('all', event)">جميع الكتب</button>
     </div>
+  </section>
 
+  <!-- شبكة عرض الكتب -->
+  <main class="container">
     <div class="books-grid" id="booksGrid"></div>
-    <div id="emptyState" style="display:none; text-align:center; padding: 50px; color:#888;">
-      لا توجد كتب متاحة في هذا القسم حالياً.
+    <div id="emptyState" style="display:none; text-align:center; padding: 60px 20px; background:#fff; border-radius:14px; border:1px dashed #cbd5e1; margin-top:20px;">
+      <span style="font-size: 40px; display:block; margin-bottom:10px;">📖</span>
+      <h3 style="color:#475569; font-weight:700; margin-bottom:6px;">لا توجد كتب متوفرة في هذا القسم حالياً</h3>
+      <p style="color:#94a3b8; font-size:14px;">سيتم إضافة عناوين جديدة قريباً من قبل إدارة المتجر.</p>
     </div>
-  </div>
+  </main>
 
+  <!-- سلة التسوق العائمة -->
   <div class="cart-float" id="cartBtn" onclick="openCart()">
     <span>🛒 السلة</span>
-    <span id="cartCount" style="background:#ef4444; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+    <span class="cart-count" id="cartCount">0</span>
   </div>
 
-  <!-- نافذة السلة والدفع -->
+  <!-- نافذة تأكيد الطلب -->
   <div class="modal" id="cartModal">
     <div class="modal-content">
-      <h3 style="margin-bottom:15px;">تأكيد طلب الكتب</h3>
-      <div id="cartItemsList" style="margin-bottom:15px;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="font-size:18px; font-weight:800; color:var(--primary);">🛍️ تأكيد طلب الكتب</h3>
+        <button onclick="closeCart()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#94a3b8;">✕</button>
+      </div>
 
-      <div class="form-group"><label>الاسم الكامل</label><input type="text" id="custName" placeholder="أدخل اسمك الكريم" required></div>
-      <div class="form-group"><label>رقم الهاتف</label><input type="tel" id="custPhone" placeholder="07xxxxxxxx" required></div>
-      <div class="form-group"><label>المحافظة والمنطقة</label><input type="text" id="custCity" placeholder="مثال: إربد - الحي الشرقي" required></div>
-      <div class="form-group"><label>العنوان التفصيلي</label><input type="text" id="custAddress" placeholder="اسم الشارع، رقم البناية، معالم قريبة"></div>
+      <div id="cartItemsList" style="margin-bottom:16px;"></div>
+
+      <div class="form-group"><label>الاسم الكامل *</label><input type="text" id="custName" placeholder="الاسم الرباعي" required></div>
+      <div class="form-group"><label>رقم الهاتف *</label><input type="tel" id="custPhone" placeholder="07xxxxxxxx" required></div>
+      <div class="form-group"><label>المحافظة والمنطقة *</label><input type="text" id="custCity" placeholder="مثال: عمان - الجبيهة" required></div>
+      <div class="form-group"><label>العنوان بالتفصيل</label><input type="text" id="custAddress" placeholder="اسم الشارع، رقم البناية، معالم قريبة"></div>
 
       <div class="checkout-summary">
-        <div class="bill-row"><span>قيمة الكتب:</span><span id="subTotal">0 د.أ</span></div>
-        <div class="bill-row"><span>رسوم التوصيل:</span><span>2 د.أ</span></div>
-        <div class="bill-row total"><span>المجموع الإجمالي:</span><span id="finalTotal">2 د.أ</span></div>
+        <div class="bill-row"><span>قيمة الكتب:</span><b id="subTotal">0 د.أ</b></div>
+        <div class="bill-row"><span>أجور التوصيل:</span><b>2 د.أ</b></div>
+        <div class="bill-row total"><span>المجموع الكلي:</span><b id="finalTotal">2 د.أ</b></div>
       </div>
 
       <div style="display:flex; gap:10px;">
-        <button class="add-btn" style="background:#16a34a; flex:1;" onclick="submitOrder()">تثبيت الطلب الآن</button>
-        <button class="add-btn" style="background:#94a3b8; width:80px;" onclick="closeCart()">إلغاء</button>
+        <button class="add-btn" style="background:#16A34A; flex:1; margin-top:0;" onclick="submitOrder()">تثبيت الطلب الآن</button>
+        <button class="add-btn" style="background:#94A3B8; width:80px; margin-top:0;" onclick="closeCart()">إغلاق</button>
       </div>
     </div>
   </div>
+
+  <footer class="footer">
+    جميع الحقوق محفوظة لمكتبة فكرة © 2026
+  </footer>
 
   <script src="shop.js"></script>
 </body>
