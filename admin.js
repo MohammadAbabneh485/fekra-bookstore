@@ -30,7 +30,7 @@ async function initAdmin() {
 }
 
 function renderData(data) {
-  // 1. ملء مربعات اختيار الأقسام (Checkboxes) لاختيار أكثر من قسم للكتاب الواحد
+  // 1. ملء مربعات اختيار الأقسام (Checkboxes)
   const catListContainer = document.getElementById('categoriesCheckboxList');
   if (catListContainer) {
     catListContainer.innerHTML = '';
@@ -44,7 +44,7 @@ function renderData(data) {
     });
   }
 
-  // 2. ملء الكتب المتوفرة مع أزرار التحكم بالكمية والحذف
+  // 2. ملء الكتب المتوفرة مع أزرار التحكم
   const booksContainer = document.getElementById('adminBooksList');
   if (booksContainer) {
     booksContainer.innerHTML = '';
@@ -56,7 +56,7 @@ function renderData(data) {
         booksContainer.innerHTML += `
           <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
             <div>
-              <img src="${book.image || 'logo.jpg.jpeg'}" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
+              <img src="${book.image || 'logo.jpg.jpeg'}" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src='logo.jpg.jpeg'">
               <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
               <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
               <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
@@ -81,7 +81,7 @@ function renderData(data) {
     }
   }
 
-  // 3. تجميع الطلبات حسب الأيام وزر الحالة
+  // 3. تجميع وعرض الطلبات الواردة
   const ordersContainer = document.getElementById('ordersList');
   if (!ordersContainer) return;
   ordersContainer.innerHTML = '';
@@ -109,9 +109,49 @@ function renderData(data) {
     `;
 
     dayOrders.forEach(ord => {
+      const isCancelled = ord.status === 'ملغي';
       const isDone = ord.status === 'تم التجهيز';
+
+      // تحديد خلفية وحدود البطاقة حسب الحالة
+      let cardBg = '#FFFFFF';
+      let cardBorder = '#E2E8F0';
+      if (isCancelled) {
+        cardBg = '#FEF2F2';
+        cardBorder = '#FECACA';
+      } else if (isDone) {
+        cardBg = '#F0FDF4';
+        cardBorder = '#86EFAC';
+      }
+
+      // تحديد شريط الإجراءات السفلي
+      let statusFooterHTML = '';
+      if (isCancelled) {
+        statusFooterHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #FCA5A5; padding-top:8px;">
+            <span style="font-size:12px; font-weight:800; color:#DC2626;">
+              ❌ الحالة: ملغي
+            </span>
+            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">
+              تم إلغاء الطلب من العميل
+            </span>
+          </div>
+        `;
+      } else {
+        statusFooterHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #E2E8F0; padding-top:8px;">
+            <span style="font-size:12px; font-weight:700; color: ${isDone ? '#16A34A' : '#D97706'};">
+              ● الحالة: ${ord.status || 'جديد'}
+            </span>
+            <button onclick="toggleOrderStatus('${ord.orderId || ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
+                    style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
+              ${isDone ? '↩️ إعادة تعيين كجديد' : '✅ تم تجهيز الطلب'}
+            </button>
+          </div>
+        `;
+      }
+
       dayBlock += `
-        <div style="background: ${isDone ? '#F0FDF4' : '#FFFFFF'}; border: 1.5px solid ${isDone ? '#86EFAC' : '#E2E8F0'}; border-radius:10px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+        <div style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius:10px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
               <span style="font-weight:800; font-size:15px; color:#0F172A;">👤 ${ord.customerName}</span>
@@ -124,19 +164,11 @@ function renderData(data) {
             📍 <b>العنوان:</b> ${ord.city} ${ord.address ? '- ' + ord.address : ''} ${ord.time ? `| ⏰ ${ord.time}` : ''}
           </div>
 
-          <div style="font-size:12px; background:#F8FAFC; padding:8px 10px; border-radius:6px; margin-bottom:10px; color:#334155;">
+          <div style="font-size:12px; background:rgba(255,255,255,0.7); border:1px solid #E2E8F0; padding:8px 10px; border-radius:6px; margin-bottom:10px; color:#334155;">
             📚 <b>الكتب:</b> ${ord.items.map(i => `${i.title} (الكمية: ${i.qty})`).join(' ، ')}
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #E2E8F0; padding-top:8px;">
-            <span style="font-size:12px; font-weight:700; color: ${isDone ? '#16A34A' : '#D97706'};">
-              ● الحالة: ${ord.status || 'جديد'}
-            </span>
-            <button onclick="toggleOrderStatus('${ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
-                    style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
-              ${isDone ? '↩️ إعادة تعيين كجديد' : '✅ تم تجهيز الطلب'}
-            </button>
-          </div>
+          ${statusFooterHTML}
         </div>
       `;
     });
@@ -165,14 +197,24 @@ async function deleteBook(bookId, title) {
   });
 }
 
+// تعديل حالة الطلب
 async function toggleOrderStatus(orderId, newStatus) {
-  await fetch('/api/orders/status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId, status: newStatus })
-  });
+  try {
+    const res = await fetch('/api/orders/status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, status: newStatus })
+    });
+    const result = await res.json();
+    if (!result.success && result.message) {
+      alert(result.message);
+    }
+  } catch (err) {
+    alert('حدث خطأ أثناء تعديل حالة الطلب');
+  }
 }
 
+// إضافة قسم
 async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
   if (!name) return;
@@ -184,7 +226,7 @@ async function addCategory() {
   document.getElementById('newCatName').value = '';
 }
 
-// حفظ الكتاب مع إرسال الأقسام المتعددة
+// حفظ ونشر كتاب جديد
 async function saveBook() {
   const title = document.getElementById('bookTitle').value.trim();
   const author = document.getElementById('bookAuthor').value.trim();
@@ -192,7 +234,6 @@ async function saveBook() {
   const quantity = document.getElementById('bookQty').value;
   const description = document.getElementById('bookDesc')?.value.trim() || '';
 
-  // التقاط الأقسام المحددة
   const checkedBoxes = document.querySelectorAll('input[name="bookCategories"]:checked');
   const selectedCategories = Array.from(checkedBoxes).map(cb => cb.value);
 
