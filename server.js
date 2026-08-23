@@ -83,7 +83,7 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
-// إضافة قسم
+// إضافة قسم جديد
 app.post('/api/categories', async (req, res) => {
   const { name } = req.body;
   if (name) {
@@ -185,20 +185,26 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// إلغاء الطلب بالكامل وحذفه واسترجاع الكتب لمرة واحدة فقط
+// إلغاء الطلب: تحويل حالته إلى "ملغي" في الداتابيز واسترجاع الكتب لمرة واحدة فقط
 app.post('/api/orders/cancel', async (req, res) => {
   const { orderId } = req.body;
   const order = await Order.findOne({ orderId });
 
   if (!order) {
-    return res.status(404).json({ success: false, message: 'الطلب غير موجود أو تم إلغاؤه مسبقاً' });
+    return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   }
 
+  // منع تكرار الإلغاء وزيادة كميات الكتب أكثر من مرة
+  if (order.status === 'ملغي') {
+    return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
+  }
+
+  // منع الإلغاء إذا تم تجهيز الطلب وتغليفه
   if (order.status === 'تم التجهيز') {
     return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه وتغليفه' });
   }
 
-  // استرجاع كميات الكتب لمرة واحدة فقط
+  // إعادة كميات الكتب إلى الداتابيز لمرة واحدة فقط
   for (const item of order.items) {
     const existing = await Book.findById(item.id);
     if (existing) {
@@ -219,15 +225,17 @@ app.post('/api/orders/cancel', async (req, res) => {
     }
   }
 
-  // حذف الطلب نهائياً من قاعدة البيانات ليختفي تماماً من شاشة العميل والأدمن
-  await Order.findOneAndDelete({ orderId });
+  // تعديل حالة الطلب في قاعدة البيانات إلى "ملغي" دون حذفه
+  order.status = 'ملغي';
+  await order.save();
 
   const fullData = await getFullData();
   io.emit('data_updated', fullData);
+
   res.json({ success: true, message: 'تم إلغاء الطلب بنجاح واسترجاع الكتب للمتجر' });
 });
 
-// تعديل حالة الطلب في الداتابيز (تم التجهيز / جديد)
+// تعديل حالة الطلب يدوياً (جديد / تم التجهيز / ملغي)
 app.post('/api/orders/status', async (req, res) => {
   const { orderId, status } = req.body;
   const order = await Order.findOne({ orderId });
@@ -238,9 +246,9 @@ app.post('/api/orders/status', async (req, res) => {
     io.emit('data_updated', await getFullData());
     res.json({ success: true, order });
   } else {
-    res.status(404).json({ success: false, message: 'Order not found' });
+    res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
