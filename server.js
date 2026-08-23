@@ -1,9 +1,9 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,252 +13,226 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
 
-const DATA_FILE = path.join(__dirname, 'data.json');
+// الاتصال بقاعدة البيانات عبر متغير البيئة MONGO_URI
+const MONGO_URI = process.env.MONGO_URI;
 
-function loadData() {
-  try {
-    if (!fs.existsSync(DATA_FILE)) {
-      const initialData = {
-        categories: ['الكتب الدينية', 'كتب أدبية', 'قسم الروايات', 'كتب سياسية'],
-        books: [],
-        orders: []
-      };
-      fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
-      return initialData;
-    }
-    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  } catch (e) {
-    return { categories: [], books: [], orders: [] };
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('✅ Connected to MongoDB Atlas'))
+  .catch(err => console.error('❌ MongoDB Connection Error:', err));
+
+// تعريف جداول قاعدة البيانات
+const Book = mongoose.model('Book', new mongoose.Schema({
+  title: String,
+  author: String,
+  price: Number,
+  categories: [String],
+  category: String,
+  quantity: Number,
+  image: String,
+  description: String
+}));
+
+const Order = mongoose.model('Order', new mongoose.Schema({
+  orderId: String,
+  customerName: String,
+  phone: String,
+  city: String,
+  address: String,
+  items: Array,
+  deliveryFee: Number,
+  total: Number,
+  date: String,
+  time: String,
+  status: { type: String, default: 'جديد' },
+  createdAt: String
+}));
+
+const Category = mongoose.model('Category', new mongoose.Schema({
+  name: { type: String, unique: true }
+}));
+
+// دالة جلب كافة البيانات المحدثة
+async function getFullData() {
+  const books = await Book.find({ quantity: { $gt: 0 } });
+  const orders = await Order.find().sort({ _id: -1 });
+  let categories = await Category.find();
+  
+  if (categories.length === 0) {
+    const defaultCats = ['الكتب الدينية', 'كتب أدبية', 'قسم الروايات', 'كتب سياسية'];
+    await Category.insertMany(defaultCats.map(name => ({ name })));
+    categories = await Category.find();
   }
+  
+  return {
+    books: books.map(b => ({ ...b.toObject(), id: b._id.toString() })),
+    orders: orders.map(o => ({ ...o.toObject(), id: o.orderId })),
+    categories: categories.map(c => c.name)
+  };
 }
 
-function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error('Error saving data:', e);
-  }
-}
-
-function restoreBookInventory(data, item) {
-  const existingBook = data.books.find(b => b.id === item.id);
-  if (existingBook) {
-    existingBook.quantity += (item.qty || 1);
-    if (item.categories && Array.isArray(item.categories)) {
-      existingBook.categories = item.categories;
-    }
-  } else {
-    let bookCategories = [];
-    if (Array.isArray(item.categories) && item.categories.length > 0) {
-      bookCategories = item.categories;
-    } else if (item.category) {
-      bookCategories = [item.category];
-    } else {
-      bookCategories = ['عام'];
-    }
-
-    data.books.push({
-      id: item.id,
-      title: item.title,
-      author: item.author || 'غير محدد',
-      price: item.price,
-      categories: bookCategories,
-      category: bookCategories[0],
-      quantity: item.qty || 1,
-      image: item.image || 'logo.jpg.jpeg',
-      description: item.description || ''
-    });
-  }
-}
-
-// مسارات العرض
+// مسارات واجهات العرض
 app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 
-// جلب البيانات
-app.get('/api/data', (req, res) => res.json(loadData()));
-
-// إضافة قسم
-app.post('/api/categories', (req, res) => {
-  const { name } = req.body;
-  const data = loadData();
-  if (name && !data.categories.includes(name)) {
-    data.categories.push(name);
-    saveData(data);
-    io.emit('data_updated', data);
+// مسار قراءة البيانات
+app.get('/api/data', async (req, res) => {
+  try {
+    res.json(await getFullData());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json({ success: true, categories: data.categories });
 });
 
-// إضافة كتاب
-app.post('/api/books', (req, res) => {
-  const { title, author, price, categories, category, quantity, image, description } = req.body;
-  const data = loadData();
-  
-  let selectedCategories = [];
-  if (Array.isArray(categories) && categories.length > 0) {
-    selectedCategories = categories;
-  } else if (category) {
-    selectedCategories = [category];
-  } else {
-    selectedCategories = ['عام'];
+// إضافة قسم
+app.post('/api/categories', async (req, res) => {
+  const { name } = req.body;
+  if (name) {
+    await Category.findOneAndUpdate({ name }, { name }, { upsert: true });
+    io.emit('data_updated', await getFullData());
   }
+  res.json({ success: true });
+});
 
-  const newBook = {
-    id: Date.now().toString(),
+// إضافة كتاب جديد
+app.post('/api/books', async (req, res) => {
+  const { title, author, price, categories, category, quantity, image, description } = req.body;
+  const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : [category || 'عام'];
+
+  const book = new Book({
     title,
     author: author || 'غير محدد',
     price: parseFloat(price),
-    categories: selectedCategories,
-    category: selectedCategories[0],
+    categories: selectedCats,
+    category: selectedCats[0],
     quantity: parseInt(quantity) || 1,
     image,
     description: description || ''
-  };
-  
-  data.books.push(newBook);
-  saveData(data);
-  io.emit('data_updated', data);
-  res.json({ success: true, book: newBook });
-});
-
-// تعديل كمية كتاب
-app.post('/api/books/quantity', (req, res) => {
-  const { bookId, change } = req.body;
-  const data = loadData();
-  const book = data.books.find(b => b.id === bookId);
-
-  if (!book) return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
-
-  book.quantity = (parseInt(book.quantity) || 0) + parseInt(change);
-
-  if (book.quantity <= 0) {
-    data.books = data.books.filter(b => b.id !== bookId);
-  }
-
-  saveData(data);
-  io.emit('data_updated', data);
-  res.json({ success: true, books: data.books });
-});
-
-// حذف كتاب
-app.post('/api/books/delete', (req, res) => {
-  const { bookId } = req.body;
-  const data = loadData();
-  data.books = data.books.filter(b => b.id !== bookId);
-
-  saveData(data);
-  io.emit('data_updated', data);
-  res.json({ success: true, message: 'تم حذف الكتاب بنجاح' });
-});
-
-// تأكيد الطلب
-app.post('/api/order', (req, res) => {
-  const { customerName, phone, address, city, items } = req.body;
-  const data = loadData();
-
-  const detailedItems = (items || []).map(orderItem => {
-    const book = data.books.find(b => b.id === orderItem.id);
-    if (book) {
-      book.quantity -= orderItem.qty;
-      return {
-        ...orderItem,
-        categories: book.categories || (book.category ? [book.category] : ['عام']),
-        category: book.category || (book.categories ? book.categories[0] : 'عام')
-      };
-    }
-    return orderItem;
   });
 
-  data.books = data.books.filter(b => b.quantity > 0);
+  await book.save();
+  io.emit('data_updated', await getFullData());
+  res.json({ success: true, book });
+});
+
+// تعديل كمية كتاب يدويًا
+app.post('/api/books/quantity', async (req, res) => {
+  const { bookId, change } = req.body;
+  const book = await Book.findById(bookId);
+  if (!book) return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
+
+  book.quantity += parseInt(change);
+  if (book.quantity <= 0) {
+    await Book.findByIdAndDelete(bookId);
+  } else {
+    await book.save();
+  }
+
+  io.emit('data_updated', await getFullData());
+  res.json({ success: true });
+});
+
+// حذف كتاب نهائياً
+app.post('/api/books/delete', async (req, res) => {
+  const { bookId } = req.body;
+  await Book.findByIdAndDelete(bookId);
+  io.emit('data_updated', await getFullData());
+  res.json({ success: true });
+});
+
+// إنشاء طلب جديد وحفظه في الداتابيز
+app.post('/api/order', async (req, res) => {
+  const { customerName, phone, address, city, items } = req.body;
+
+  // خصم الكميات من الداتابيز
+  for (const item of items) {
+    const book = await Book.findById(item.id);
+    if (book) {
+      book.quantity -= item.qty;
+      if (book.quantity <= 0) {
+        await Book.findByIdAndDelete(item.id);
+      } else {
+        await book.save();
+      }
+    }
+  }
 
   const now = new Date();
   const dateKey = now.toLocaleDateString('ar-JO');
   const timeKey = now.toLocaleTimeString('ar-JO', { hour: '2-digit', minute: '2-digit' });
+  const orderId = 'ORD-' + Date.now().toString().slice(-6);
 
-  const newOrder = {
-    id: 'ORD-' + Date.now().toString().slice(-6),
+  const newOrder = new Order({
+    orderId,
     customerName,
     phone,
     address,
     city,
-    items: detailedItems,
+    items,
     deliveryFee: 2,
-    total: detailedItems.reduce((sum, i) => sum + (i.price * i.qty), 0) + 2,
+    total: items.reduce((sum, i) => sum + (i.price * i.qty), 0) + 2,
     date: dateKey,
     time: timeKey,
     status: 'جديد',
     createdAt: `${dateKey} - ${timeKey}`
-  };
+  });
 
-  data.orders.unshift(newOrder);
-  saveData(data);
+  await newOrder.save();
 
-  io.emit('data_updated', data);
+  const fullData = await getFullData();
+  io.emit('data_updated', fullData);
   io.emit('new_order', newOrder);
 
   res.json({ success: true, order: newOrder });
 });
 
-// إلغاء الطلب بالكامل
-app.post('/api/orders/cancel', (req, res) => {
+// إلغاء الطلب واسترجاع الكتب للداتابيز
+app.post('/api/orders/cancel', async (req, res) => {
   const { orderId } = req.body;
-  const data = loadData();
-  const orderIndex = data.orders.findIndex(o => o.id === orderId);
-
-  if (orderIndex === -1) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-
-  const order = data.orders[orderIndex];
-  if (order.status === 'تم التجهيز') {
-    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه بالفعل' });
-  }
-
-  (order.items || []).forEach(item => restoreBookInventory(data, item));
-
-  data.orders.splice(orderIndex, 1);
-  saveData(data);
-
-  io.emit('data_updated', data);
-  res.json({ success: true, message: 'تم إلغاء الطلب واسترجاع الكتب للمتجر' });
-});
-
-// حذف عنصر من الطلب
-app.post('/api/orders/remove-item', (req, res) => {
-  const { orderId, itemId } = req.body;
-  const data = loadData();
-  const order = data.orders.find(o => o.id === orderId);
+  const order = await Order.findOne({ orderId });
 
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   if (order.status === 'تم التجهيز') {
-    return res.status(400).json({ success: false, message: 'لا يمكن تعديل الطلب لأنه تم تجهيزه بالفعل' });
+    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه' });
   }
 
-  const itemIndex = order.items.findIndex(i => i.id === itemId);
-  if (itemIndex === -1) return res.status(404).json({ success: false, message: 'الكتاب غير موجود في الطلب' });
-
-  const [removedItem] = order.items.splice(itemIndex, 1);
-  restoreBookInventory(data, removedItem);
-
-  if (order.items.length === 0) {
-    data.orders = data.orders.filter(o => o.id !== orderId);
-  } else {
-    order.total = order.items.reduce((sum, i) => sum + (i.price * i.qty), 0) + (order.deliveryFee || 2);
+  // إعادة الكتب للداتابيز
+  for (const item of order.items) {
+    const existing = await Book.findById(item.id);
+    if (existing) {
+      existing.quantity += item.qty;
+      await existing.save();
+    } else {
+      await Book.create({
+        _id: item.id,
+        title: item.title,
+        author: item.author || 'غير محدد',
+        price: item.price,
+        categories: item.categories || [item.category || 'عام'],
+        category: item.category || 'عام',
+        quantity: item.qty,
+        image: item.image || 'logo.jpg.jpeg',
+        description: item.description || ''
+      });
+    }
   }
 
-  saveData(data);
-  io.emit('data_updated', data);
-  res.json({ success: true, order });
+  // تحديث حالة الطلب إلى ملغي
+  order.status = 'ملغي';
+  await order.save();
+
+  io.emit('data_updated', await getFullData());
+  res.json({ success: true, message: 'تم إلغاء الطلب واسترجاع الكتب' });
 });
 
-// تحديث حالة الطلب
-app.post('/api/orders/status', (req, res) => {
+// تعديل حالة الطلب في الداتابيز (تم التجهيز / جديد)
+app.post('/api/orders/status', async (req, res) => {
   const { orderId, status } = req.body;
-  const data = loadData();
-  const order = data.orders.find(o => o.id === orderId);
+  const order = await Order.findOne({ orderId });
+
   if (order) {
     order.status = status;
-    saveData(data);
-    io.emit('data_updated', data);
+    await order.save();
+    io.emit('data_updated', await getFullData());
     res.json({ success: true, order });
   } else {
     res.status(404).json({ success: false, message: 'Order not found' });
