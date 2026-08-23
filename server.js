@@ -185,17 +185,20 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// إلغاء الطلب واسترجاع الكتب للداتابيز
+// إلغاء الطلب بالكامل وحذفه واسترجاع الكتب لمرة واحدة فقط
 app.post('/api/orders/cancel', async (req, res) => {
   const { orderId } = req.body;
   const order = await Order.findOne({ orderId });
 
-  if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-  if (order.status === 'تم التجهيز') {
-    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه' });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'الطلب غير موجود أو تم إلغاؤه مسبقاً' });
   }
 
-  // إعادة الكتب للداتابيز
+  if (order.status === 'تم التجهيز') {
+    return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه وتغليفه' });
+  }
+
+  // استرجاع كميات الكتب لمرة واحدة فقط
   for (const item of order.items) {
     const existing = await Book.findById(item.id);
     if (existing) {
@@ -216,12 +219,12 @@ app.post('/api/orders/cancel', async (req, res) => {
     }
   }
 
-  // تحديث حالة الطلب إلى ملغي
-  order.status = 'ملغي';
-  await order.save();
+  // حذف الطلب نهائياً من قاعدة البيانات ليختفي تماماً من شاشة العميل والأدمن
+  await Order.findOneAndDelete({ orderId });
 
-  io.emit('data_updated', await getFullData());
-  res.json({ success: true, message: 'تم إلغاء الطلب واسترجاع الكتب' });
+  const fullData = await getFullData();
+  io.emit('data_updated', fullData);
+  res.json({ success: true, message: 'تم إلغاء الطلب بنجاح واسترجاع الكتب للمتجر' });
 });
 
 // تعديل حالة الطلب في الداتابيز (تم التجهيز / جديد)
