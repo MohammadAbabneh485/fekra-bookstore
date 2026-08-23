@@ -10,56 +10,86 @@
 <body style="background:#f1f5f9;">
 
   <header class="header">
-    <div class="logo-container">
-      <img src="logo.jpg" alt="مكتبة فكرة" class="logo-img">
-      <div class="logo-text">
-        <h1>لوحة تحكم صاحب المتجر</h1>
-        <p>إدارة الكتب والأقسام والطلبات لحظياً</p>
-      </div>
+    <div class="header-inner" style="display:flex; justify-content:space-between; align-items:center; max-width:1200px; margin:0 auto; padding:10px 20px;">
+      <a href="/shop" class="logo-container" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
+        <img src="logo.jpg.jpeg" alt="مكتبة فكرة" class="logo-img" style="width:45px; height:45px; border-radius:50%; object-fit:cover;" onerror="this.src='logo.jpg'">
+        <div class="logo-text">
+          <h1 style="font-size:18px; margin:0; color:#0f172a;">لوحة تحكم صاحب المتجر</h1>
+          <p style="font-size:12px; margin:0; color:#64748b;">إدارة الكتب والأقسام والطلبات لحظياً</p>
+        </div>
+      </a>
+      <a href="/shop" target="_blank" style="background:#1e293b; color:#fff; padding:8px 16px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:700;">🌐 فتح المتجر</a>
     </div>
   </header>
 
-  <div class="container" style="display:grid; grid-template-columns: 350px 1fr; gap:25px;">
+  <div class="container" style="max-width:1200px; margin:20px auto; padding:0 15px; display:grid; grid-template-columns: 360px 1fr; gap:25px;">
     
     <!-- عمود الإضافة -->
     <div>
-      <!-- إضافة قسم -->
-      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0;">
-        <h4>📁 إضافة قسم جديد</h4>
+      <!-- إضافة قسم جديد -->
+      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <h4 style="margin-top:0; color:#0f172a; font-size:15px;">📁 إضافة قسم جديد</h4>
         <div style="display:flex; gap:10px; margin-top:10px;">
-          <input type="text" id="newCatName" placeholder="اسم القسم الجديد" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:6px;">
-          <button class="add-btn" style="margin-top:0; width:80px;" onclick="addCategory()">إضافة</button>
+          <input type="text" id="newCatName" placeholder="اسم القسم الجديد" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+          <button class="add-btn" style="background:#1e293b; color:#fff; border:none; border-radius:6px; padding:0 15px; font-weight:700; cursor:pointer;" onclick="addCategory()">إضافة</button>
         </div>
       </div>
 
-      <!-- إضافة كتاب -->
-      <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-        <h4>📖 إضافة كتاب جديد</h4>
-        <div class="form-group" style="margin-top:10px;"><label>عنوان الكتاب *</label><input type="text" id="bookTitle" required></div>
-        <div class="form-group"><label>المؤلف</label><input type="text" id="bookAuthor"></div>
-        <div class="form-group"><label>القسم *</label><div class="form-group">
-  <label>الأقسام (اختر قسماً واحداً أو أكثر) *</label>
-  <div id="categoriesCheckboxList" style="max-height: 140px; overflow-y: auto; border: 1.5px solid #E2E8F0; border-radius: 8px; padding: 8px; background: #FAFAFA; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-    <!-- ستظهر الأقسام هنا على شكل مربعات اختيار تلقائياً -->
-  </div>
-</div></div>
-        <div class="form-group"><label>السعر (د.أ) *</label><input type="number" id="bookPrice" step="0.5" required></div>
-        <div class="form-group"><label>الكمية المتوفرة</label><input type="number" id="bookQty" value="1" min="1"></div>
-        <div class="form-group"><label>صورة الغلاف (من جهازك) *</label><input type="file" id="bookImageFile" accept="image/*"></div>
-        <div class="form-group"><label>وصف مختصر</label><textarea id="bookDesc" rows="2"></textarea></div>
-        <button class="add-btn" onclick="saveBook()">نشر الكتاب في المتجر</button>
+      <!-- إضافة كتاب جديد -->
+      <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <h4 style="margin-top:0; color:#0f172a; font-size:15px;">📖 إضافة كتاب جديد</h4>
+        
+        <div class="form-group" style="margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">عنوان الكتاب *</label>
+          <input type="text" id="bookTitle" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">المؤلف</label>
+          <input type="text" id="bookAuthor" placeholder="اسم المؤلف" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">الأقسام (اختر قسماً واحداً أو أكثر) *</label>
+          <div id="categoriesCheckboxList" style="max-height: 130px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #fafafa; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <!-- تظهر خيارات الأقسام هنا تلقائياً -->
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <div class="form-group" style="flex:1;">
+            <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">السعر (د.أ) *</label>
+            <input type="number" id="bookPrice" step="0.25" placeholder="مثال: 4" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">الكمية *</label>
+            <input type="number" id="bookQty" value="1" min="1" required style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">صورة الغلاف (من جهازك) *</label>
+          <input type="file" id="bookImageFile" accept="image/*" style="width:100%; font-size:12px;">
+        </div>
+
+        <div class="form-group" style="margin-top:10px;">
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">وصف مختصر</label>
+          <textarea id="bookDesc" rows="2" placeholder="نبذة عن الكتاب أو حالته..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box; font-family:inherit;"></textarea>
+        </div>
+
+        <button class="add-btn" style="background:#16a34a; color:#fff; border:none; padding:10px; border-radius:8px; width:100%; font-weight:700; font-size:14px; margin-top:12px; cursor:pointer;" onclick="saveBook()">نشر الكتاب في المتجر</button>
       </div>
     </div>
 
     <!-- عمود العرض والطلبات -->
     <div>
-      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #e2e8f0;">
-        <h4>📦 الطلبات الواردة لحظياً</h4>
+      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <h4 style="margin-top:0; color:#0f172a; font-size:16px;">📦 الطلبات الواردة لحظياً</h4>
         <div id="ordersList" style="margin-top:15px;"></div>
       </div>
 
-      <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-        <h4>📚 الكتب المتوفرة حالياً في الموقع</h4>
+      <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <h4 style="margin-top:0; color:#0f172a; font-size:16px;">📚 الكتب المتوفرة حالياً في الموقع</h4>
         <div id="adminBooksList" style="margin-top:15px; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:15px;"></div>
       </div>
     </div>
