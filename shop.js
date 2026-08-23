@@ -5,7 +5,7 @@ let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
 
-// تحميل البيانات
+// تحميل البيانات الأساسية
 async function loadData() {
   try {
     const res = await fetch('/api/data');
@@ -20,7 +20,7 @@ async function loadData() {
   }
 }
 
-// التحديثات اللحظية
+// التحديثات اللحظية عبر Socket.io
 socket.on('data_updated', (data) => {
   allBooks = data.books || [];
   allOrders = data.orders || [];
@@ -52,7 +52,7 @@ function handleSearch() {
   renderBooks();
 }
 
-// رسم شبكة الكتب مع جعل الصورة قابلة للنقر
+// رسم بطاقات الكتب مع إتاحة النقر على البطاقة أو الغلاف
 function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -82,23 +82,31 @@ function renderBooks() {
   grid.innerHTML = filtered.map(b => {
     const bookId = b.id || b._id;
     return `
-      <div class="book-card" style="background:#fff; border-radius:12px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
-        <div style="cursor:pointer;" onclick="openBookModal('${bookId}')" title="اضغط لعرض الغلاف والوصف الكامل">
-          <div style="overflow:hidden; border-radius:8px; margin-bottom:10px; position:relative;">
-            <img src="${b.image || 'logo.jpg.jpeg'}" alt="${b.title}" style="width:100%; height:200px; object-fit:cover; display:block; transition:0.3s transform;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'" onerror="this.src='logo.jpg.jpeg'">
-            <span style="position:absolute; bottom:6px; left:6px; background:rgba(15,23,42,0.7); color:#fff; font-size:11px; padding:2px 8px; border-radius:6px;">🔍 عرض التفاصيل</span>
+      <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03); transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
+        
+        <!-- النقر على الصورة أو النصوص يفتح صفحة التفاصيل الواسعة -->
+        <div style="cursor:pointer;" onclick="openBookModal('${bookId}')" title="اضغط لعرض تفاصيل الكتاب كاملة">
+          <div style="overflow:hidden; border-radius:10px; margin-bottom:12px; position:relative; background:#f8fafc;">
+            <img src="${b.image || 'logo.jpg.jpeg'}" alt="${b.title}" style="width:100%; height:220px; object-fit:cover; display:block; transition:transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onerror="this.src='logo.jpg.jpeg'">
+            <span style="position:absolute; bottom:8px; right:8px; background:rgba(15, 23, 42, 0.8); backdrop-filter:blur(2px); color:#fff; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:bold;">🔎 عرض الغلاف والوصف</span>
           </div>
-          <h4 style="margin:0 0 4px 0; font-size:16px; font-weight:bold; color:#0f172a;">${b.title}</h4>
+          <h4 style="margin:0 0 4px 0; font-size:16px; font-weight:800; color:#0f172a; line-height:1.4;">${b.title}</h4>
           <p style="color:#64748b; font-size:13px; margin:0 0 6px 0;">المؤلف: ${b.author || 'غير محدد'}</p>
-          <p style="color:#b45309; font-weight:bold; font-size:15px; margin:0 0 10px 0;">السعر: ${b.price} د.أ</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="color:#b45309; font-weight:900; font-size:16px;">${b.price} د.أ</span>
+            <span style="color:#16a34a; font-size:12px; font-weight:700; background:#dcfce7; padding:2px 8px; border-radius:12px;">متوفر: ${b.quantity}</span>
+          </div>
         </div>
-        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; margin-top:5px;">أضف للسلة 🛒</button>
+
+        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; transition:background 0.2s;" onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
+          أضف للسلة 🛒
+        </button>
       </div>
     `;
   }).join('');
 }
 
-// دالة فتح تفاصيل الغلاف والوصف الكامل
+// فتح نافذة تفاصيل الكتاب الكبيرة والواضحة
 function openBookModal(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -108,26 +116,46 @@ function openBookModal(bookId) {
   const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
 
   body.innerHTML = `
-    <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="width:100%; max-height:360px; object-fit:contain; border-radius:10px; background:#f8fafc; margin-bottom:14px;" onerror="this.src='logo.jpg.jpeg'">
-    <h3 style="margin:0 0 6px 0; font-size:18px; color:#0f172a; font-weight:800;">${book.title}</h3>
-    <p style="color:#64748b; font-size:14px; margin:0 0 8px 0;">المؤلف: <b>${book.author || 'غير محدد'}</b></p>
-    <div style="margin-bottom:12px;">
-      <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:600;">📂 ${catsDisplay}</span>
-    </div>
-    
-    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; border-radius:8px; text-align:right; margin-bottom:15px; font-size:13px; line-height:1.6; color:#334155;">
-      <b style="color:#0f172a; display:block; margin-bottom:4px;">📖 نبذة عن الكتاب:</b>
-      ${book.description ? book.description : '<span style="color:#94a3b8;">لا يوجد وصف إضافي متوفر لهذا الكتاب حالياً.</span>'}
+    <button class="close-details-btn" onclick="closeBookModal()" title="إغلاق">✕</button>
+
+    <!-- الجانب الأيمن: صورة الغلاف كاملة بدون قص -->
+    <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0;">
+      <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:480px; object-fit:contain; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08);" onerror="this.src='logo.jpg.jpeg'">
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-      <span style="font-size:16px; font-weight:800; color:#b45309;">السعر: ${book.price} د.أ</span>
-      <span style="font-size:13px; color:#16a34a; font-weight:700;">متوفر: ${book.quantity} نسخ</span>
-    </div>
+    <!-- الجانب الأيسر: التفاصيل والوصف والطلب -->
+    <div style="display:flex; flex-direction:column; justify-content:space-between; text-align:right;">
+      <div>
+        <div style="margin-bottom:8px;">
+          <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700;">📂 ${catsDisplay}</span>
+        </div>
+        <h2 style="margin:0 0 8px 0; font-size:22px; color:#0f172a; font-weight:900; line-height:1.3;">${book.title}</h2>
+        <p style="color:#64748b; font-size:15px; margin:0 0 16px 0;">المؤلف: <b style="color:#334155;">${book.author || 'غير محدد'}</b></p>
+        
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:20px;">
+          <div style="font-weight:800; color:#0f172a; font-size:14px; margin-bottom:6px;">📖 نبذة عن الكتاب وحالته:</div>
+          <p style="color:#334155; font-size:14px; line-height:1.7; margin:0; white-space:pre-line;">
+            ${book.description ? book.description : 'كتاب بحالة ممتازة وجاهز للتوصيل مباشرة.'}
+          </p>
+        </div>
+      </div>
 
-    <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; width:100%;">
-      إضافة إلى السلة مباشرة 🛒
-    </button>
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-top:1px dashed #e2e8f0; padding-top:12px;">
+          <div>
+            <span style="font-size:13px; color:#64748b; display:block;">السعر:</span>
+            <span style="font-size:22px; font-weight:900; color:#b45309;">${book.price} د.أ</span>
+          </div>
+          <div>
+            <span style="font-size:13px; color:#16a34a; font-weight:700; background:#dcfce7; padding:4px 12px; border-radius:10px;">متوفر بالمخزون: ${book.quantity} نسخ</span>
+          </div>
+        </div>
+
+        <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:15px; cursor:pointer; width:100%; box-shadow:0 4px 12px rgba(22,163,74,0.25); transition:0.2s;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+          إضافة هذا الكتاب إلى السلة 🛒
+        </button>
+      </div>
+    </div>
   `;
 
   modal.style.display = 'flex';
@@ -138,7 +166,13 @@ function closeBookModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// السلة
+function handleModalOutsideClick(e) {
+  if (e.target.id === 'bookDetailsModal') {
+    closeBookModal();
+  }
+}
+
+// السلة والطلبات
 function addToCart(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -250,7 +284,7 @@ async function submitOrder() {
   }
 }
 
-// متابعة الطلبات
+// مودال متابعة الطلبات
 function openMyOrdersModal() {
   document.getElementById('myOrdersModal').style.display = 'flex';
 }
