@@ -1,140 +1,163 @@
 const socket = io();
 let allBooks = [];
 let allOrders = [];
+let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
-let searchQuery = '';
 
+// تحميل البيانات من السيرفر
+async function loadData() {
+  try {
+    const res = await fetch('/api/data');
+    const data = await res.json();
+    allBooks = data.books || [];
+    allOrders = data.orders || [];
+    allCategories = data.categories || [];
+    renderCategories();
+    renderBooks();
+  } catch (err) {
+    console.error('Error fetching data:', err);
+  }
+}
+
+// استماع للتحديثات اللحظية
 socket.on('data_updated', (data) => {
   allBooks = data.books || [];
   allOrders = data.orders || [];
-  renderCategories(data.categories || []);
+  allCategories = data.categories || [];
   renderBooks();
-  refreshMyOrdersView();
+  const trackInput = document.getElementById('trackPhoneInput');
+  if (trackInput && trackInput.value.trim()) {
+    searchMyOrders();
+  }
 });
 
-async function init() {
-  const res = await fetch('/api/data');
-  const data = await res.json();
-  allBooks = data.books || [];
-  allOrders = data.orders || [];
-  renderCategories(data.categories || []);
-  renderBooks();
-}
-
-function renderCategories(categories) {
+function renderCategories() {
   const bar = document.getElementById('categoriesBar');
-  bar.innerHTML = `<button class="cat-btn ${currentCategory==='all'?'active':''}" onclick="filterCategory('all', event)">جميع الكتب</button>`;
-  categories.forEach(cat => {
-    bar.innerHTML += `<button class="cat-btn ${currentCategory===cat?'active':''}" onclick="filterCategory('${cat}', event)">${cat}</button>`;
+  if (!bar) return;
+  bar.innerHTML = `<button class="cat-btn ${currentCategory === 'all' ? 'active' : ''}" onclick="filterCategory('all', event)">جميع الكتب</button>`;
+  allCategories.forEach(cat => {
+    bar.innerHTML += `<button class="cat-btn ${currentCategory === cat ? 'active' : ''}" onclick="filterCategory('${cat}', event)">${cat}</button>`;
   });
 }
 
 function filterCategory(cat, e) {
   currentCategory = cat;
   document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
-  if (e && e.target) e.target.classList.add('active');
+  if (e) e.target.classList.add('active');
   renderBooks();
 }
 
 function handleSearch() {
-  searchQuery = document.getElementById('searchInput').value.trim().toLowerCase();
   renderBooks();
 }
 
 function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
+  if (!grid) return;
   
-  // فلترة حسب ما إذا كان القسم المحدد موجوداً في مصفوفة أقسام الكتاب
-  let filtered = currentCategory === 'all' 
-    ? allBooks 
-    : allBooks.filter(b => {
-        if (Array.isArray(b.categories)) {
-          return b.categories.includes(currentCategory);
-        }
-        return b.category === currentCategory;
-      });
-  
-  if (searchQuery) {
+  const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+  let filtered = allBooks.filter(b => b.quantity > 0);
+
+  if (currentCategory !== 'all') {
+    filtered = filtered.filter(b => (b.categories && b.categories.includes(currentCategory)) || b.category === currentCategory);
+  }
+
+  if (query) {
     filtered = filtered.filter(b => 
-      (b.title && b.title.toLowerCase().includes(searchQuery)) ||
-      (b.author && b.author.toLowerCase().includes(searchQuery))
+      (b.title && b.title.toLowerCase().includes(query)) ||
+      (b.author && b.author.toLowerCase().includes(query))
     );
   }
 
-  grid.innerHTML = '';
   if (filtered.length === 0) {
-    empty.style.display = 'block';
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
     return;
   }
-  empty.style.display = 'none';
 
-  filtered.forEach(book => {
-    // تحديد القسم الأساسي أو دمج الأقسام للعرض على شارة الغلاف
-    const badgeText = Array.isArray(book.categories) ? book.categories[0] : (book.category || 'عام');
-
-    grid.innerHTML += `
-      <div class="book-card">
-        <div class="img-wrapper">
-          <span class="badge-cat">${badgeText}</span>
-          <img src="${book.image || 'logo.jpg.jpeg'}" class="book-img" alt="${book.title}">
-        </div>
-        <div class="book-info">
-          <div>
-            <h4 class="book-title">${book.title}</h4>
-            <div class="book-author">${book.author || 'مؤلف غير محدد'}</div>
-          </div>
-          <div>
-            <div class="book-meta">
-              <span style="font-size:12px; color:#64748B;">السعر:</span>
-              <div class="book-price">${book.price} <span>د.أ</span></div>
-            </div>
-            <button class="add-btn" onclick="addToCart('${book.id}')">🛒 إضافة إلى السلة</button>
-          </div>
-        </div>
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = filtered.map(b => `
+    <div class="book-card" style="background:#fff; border-radius:12px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between;">
+      <img src="${b.image || 'logo.jpg.jpeg'}" alt="${b.title}" style="width:100%; height:200px; object-fit:cover; border-radius:8px; margin-bottom:10px;" onerror="this.src='logo.jpg.jpeg'">
+      <div>
+        <h4 style="margin:0 0 4px 0; font-size:16px; font-weight:bold;">${b.title}</h4>
+        <p style="color:#64748b; font-size:13px; margin:0 0 6px 0;">المؤلف: ${b.author || 'غير محدد'}</p>
+        <p style="color:#0f172a; font-weight:bold; font-size:15px; margin:0 0 10px 0;">السعر: ${b.price} د.أ</p>
       </div>
-    `;
-  });
+      <button onclick="addToCart('${b.id || b._id}')" style="background:#1e293b; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">أضف للسلة 🛒</button>
+    </div>
+  `).join('');
 }
 
-function addToCart(id) {
-  const book = allBooks.find(b => b.id === id);
+// السلة
+function addToCart(bookId) {
+  const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
-  const existing = cart.find(i => i.id === id);
-  if (existing) {
-    if (existing.qty < book.quantity) existing.qty++;
-    else alert('عذراً، هذه هي الكمية المتوفرة الوحيدة من هذا الكتاب');
+
+  const inCart = cart.find(item => item.id === bookId);
+  if (inCart) {
+    if (inCart.qty < book.quantity) {
+      inCart.qty += 1;
+    } else {
+      alert('عذراً، هذه أقصى كمية متوفرة من هذا الكتاب');
+    }
   } else {
-    cart.push({ ...book, qty: 1 });
+    cart.push({
+      id: book.id || book._id,
+      title: book.title,
+      price: book.price,
+      qty: 1,
+      maxQty: book.quantity
+    });
   }
-  updateCartCount();
+  updateCartUI();
 }
 
-function updateCartCount() {
-  const totalQty = cart.reduce((sum, i) => sum + i.qty, 0);
-  document.getElementById('cartCount').innerText = totalQty;
+function updateCartUI() {
+  const countElem = document.getElementById('cartCount');
+  if (countElem) countElem.innerText = cart.reduce((sum, it) => sum + it.qty, 0);
+
+  const list = document.getElementById('cartItemsList');
+  if (list) {
+    if (cart.length === 0) {
+      list.innerHTML = '<p style="text-align:center; color:#94a3b8;">السلة فارغة</p>';
+    } else {
+      list.innerHTML = cart.map((it, idx) => `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; background:#f8fafc; padding:8px 12px; border-radius:6px;">
+          <span><b>${it.title}</b> (${it.price} د.أ)</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button onclick="changeQty(${idx}, -1)" style="padding:2px 8px; cursor:pointer;">-</button>
+            <b>${it.qty}</b>
+            <button onclick="changeQty(${idx}, 1)" style="padding:2px 8px; cursor:pointer;">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  const subTotal = cart.reduce((sum, it) => sum + (it.price * it.qty), 0);
+  const subElem = document.getElementById('subTotal');
+  const finalElem = document.getElementById('finalTotal');
+  if (subElem) subElem.innerText = subTotal + ' د.أ';
+  if (finalElem) finalElem.innerText = (subTotal > 0 ? subTotal + 2 : 0) + ' د.أ';
+}
+
+function changeQty(idx, delta) {
+  cart[idx].qty += delta;
+  if (cart[idx].qty <= 0) {
+    cart.splice(idx, 1);
+  } else if (cart[idx].qty > cart[idx].maxQty) {
+    cart[idx].qty = cart[idx].maxQty;
+    alert('هذه أقصى كمية متوفرة');
+  }
+  updateCartUI();
 }
 
 function openCart() {
-  if (cart.length === 0) return alert('السلة فارغة حالياً');
-  const list = document.getElementById('cartItemsList');
-  list.innerHTML = '';
-  let subTotal = 0;
-
-  cart.forEach(item => {
-    subTotal += item.price * item.qty;
-    list.innerHTML += `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:14px;">
-        <span>📖 ${item.title} (x${item.qty})</span>
-        <b style="color:#b45309;">${item.price * item.qty} د.أ</b>
-      </div>
-    `;
-  });
-
-  document.getElementById('subTotal').innerText = subTotal + ' د.أ';
-  document.getElementById('finalTotal').innerText = (subTotal + 2) + ' د.أ';
   document.getElementById('cartModal').style.display = 'flex';
+  updateCartUI();
 }
 
 function closeCart() {
@@ -142,39 +165,46 @@ function closeCart() {
 }
 
 async function submitOrder() {
+  if (cart.length === 0) {
+    alert('السلة فارغة!');
+    return;
+  }
   const customerName = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
   const city = document.getElementById('custCity').value.trim();
   const address = document.getElementById('custAddress').value.trim();
 
-  if (!customerName || !phone || !city) return alert('يرجى كتابة الاسم ورقم الهاتف والمحافظة/المنطقة');
+  if (!customerName || !phone || !city) {
+    alert('يرجى ملء كافة الحقول الإجبارية (*)');
+    return;
+  }
 
-  const orderData = { customerName, phone, city, address, items: cart };
-
-  const res = await fetch('/api/order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(orderData)
-  });
-
-  const result = await res.json();
-  if (result.success) {
-    localStorage.setItem('fekra_last_phone', phone);
-    alert('🎉 تم تأكيد طلبك بنجاح! يمكنك متابعة وتعديل طلبك من زر "طلباتي" في الأعلى.');
-    cart = [];
-    updateCartCount();
-    closeCart();
+  try {
+    const res = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerName, phone, city, address, items: cart })
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert('تم تثبيت طلبك بنجاح! رقم الطلب: ' + result.order.orderId);
+      cart = [];
+      updateCartUI();
+      closeCart();
+      document.getElementById('custName').value = '';
+      document.getElementById('custPhone').value = '';
+      document.getElementById('custCity').value = '';
+      document.getElementById('custAddress').value = '';
+    } else {
+      alert('حدث خطأ أثناء تثبيت الطلب');
+    }
+  } catch (err) {
+    alert('تعذر الاتصال بالسيرفر');
   }
 }
 
-// ---------------- منطق متابعة وتعديل وإلغاء طلباتي ---------------- //
-
+// نافذة متابعة الطلبات للعميل
 function openMyOrdersModal() {
-  const savedPhone = localStorage.getItem('fekra_last_phone') || '';
-  if (savedPhone) {
-    document.getElementById('trackPhoneInput').value = savedPhone;
-    searchMyOrders();
-  }
   document.getElementById('myOrdersModal').style.display = 'flex';
 }
 
@@ -183,70 +213,66 @@ function closeMyOrdersModal() {
 }
 
 function searchMyOrders() {
-  const phone = document.getElementById('trackPhoneInput').value.trim();
+  const phone = (document.getElementById('trackPhoneInput')?.value || '').trim();
   const container = document.getElementById('myOrdersContent');
+
   if (!phone) {
-    container.innerHTML = '<p style="color:#888; text-align:center;">يرجى كتابة رقم هاتفك للبحث عن طلباتك.</p>';
+    container.innerHTML = '<p style="text-align:center; color:#ef4444; font-weight:bold;">يرجى إدخال رقم الهاتف للبحث</p>';
     return;
   }
 
-  localStorage.setItem('fekra_last_phone', phone);
-  const myOrders = allOrders.filter(o => o.phone === phone);
+  const userOrders = allOrders.filter(o => o.phone && o.phone.trim() === phone);
 
-  if (myOrders.length === 0) {
-    container.innerHTML = '<div style="text-align:center; color:#64748B; padding:20px;">لا توجد طلبات مسجلة بهذا الرقم.</div>';
+  if (userOrders.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#64748b; padding:20px 0;">لا توجد طلبات مسجلة بهذا الرقم.</p>';
     return;
   }
 
-  let html = '';
-  myOrders.forEach(ord => {
-    const isReady = ord.status === 'تم التجهيز';
-    html += `
-      <div style="background:#F8FAFC; border:1.5px solid ${isReady ? '#86EFAC' : '#CBD5E1'}; border-radius:12px; padding:14px; margin-bottom:12px;">
+  container.innerHTML = userOrders.map(order => {
+    const orderIdVal = order.orderId || order.id;
+    
+    // فحص شارة الحالة
+    let statusBadge = `<span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">⏳ قيد المراجعة</span>`;
+    if (order.status === 'ملغي') {
+      statusBadge = `<span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">❌ ملغي</span>`;
+    } else if (order.status === 'تم التجهيز') {
+      statusBadge = `<span style="background:#dcfce7; color:#16a34a; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">📦 تم التجهيز</span>`;
+    }
+
+    // إخفاء زر الإلغاء إذا تم الإلغاء أو التجهيز
+    let actionBtn = '';
+    if (order.status === 'ملغي') {
+      actionBtn = `<div style="background:#fee2e2; color:#b91c1c; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم إلغاء هذا الطلب واسترجاع الكتب للمتجر</div>`;
+    } else if (order.status === 'تم التجهيز') {
+      actionBtn = `<div style="background:#dcfce7; color:#15803d; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم تجهيز وتغليف طلبك وهو جاهز للشحن</div>`;
+    } else {
+      actionBtn = `<button onclick="cancelCustomerOrder('${orderIdVal}')" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; border-radius:6px; width:100%; cursor:pointer; font-weight:bold; margin-top:10px;">إلغاء الطلب بالكامل ✖</button>`;
+    }
+
+    return `
+      <div style="border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:12px; background:#fff;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <b style="color:var(--primary); font-size:14px;">طلب: ${ord.id}</b>
-          <span style="font-size:12px; font-weight:700; padding:3px 8px; border-radius:6px; background:${isReady ? '#DCFCE7' : '#FEF3C7'}; color:${isReady ? '#166534' : '#B45309'};">
-            ${isReady ? '✅ تم التجهيز' : '⏳ قيد المراجعة'}
-          </span>
+          <span style="font-weight:bold; font-size:14px; color:#1e293b;">طلب: ${orderIdVal}</span>
+          ${statusBadge}
         </div>
-
-        <div style="font-size:12px; color:#64748B; margin-bottom:8px;">
-          📅 ${ord.createdAt || ord.date} | المجموع الكلي: <b style="color:#B45309;">${ord.total} د.أ</b>
+        <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
+          📅 ${order.date || ''} - ${order.time || ''} | المجموع الكلي: <b>${order.total} د.أ</b>
         </div>
-
-        <div style="background:#fff; border-radius:8px; padding:8px; margin-bottom:10px; border:1px solid #E2E8F0;">
-          <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">الكتب في الطلب:</div>
-          ${ord.items.map(i => `
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:4px 0; border-bottom:1px solid #F1F5F9;">
-              <span>• ${i.title} (${i.qty})</span>
-              ${!isReady ? `<button onclick="removeItemFromOrder('${ord.id}', '${i.id}')" style="background:#FEE2E2; color:#DC2626; border:none; padding:2px 6px; border-radius:4px; cursor:pointer; font-size:11px;">حذف</button>` : ''}
-            </div>
-          `).join('')}
+        <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-size:13px;">
+          <div style="font-weight:bold; margin-bottom:4px; color:#334155;">الكتب المطلوبة:</div>
+          <ul style="margin:0; padding-right:18px; color:#475569;">
+            ${order.items.map(it => `<li>${it.title} (${it.qty})</li>`).join('')}
+          </ul>
         </div>
-
-        ${isReady 
-          ? `<div style="font-size:11px; color:#166534; font-weight:700; background:#DCFCE7; padding:6px; border-radius:6px; text-align:center;">🔒 تم تجهيز الطلب للتوصيل، لا يمكن التعديل أو الإلغاء.</div>`
-          : `<div style="display:flex; justify-content:flex-end;">
-               <button onclick="cancelFullOrder('${ord.id}')" style="background:#EF4444; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">❌ إلغاء الطلب بالكامل</button>
-             </div>`
-        }
+        ${actionBtn}
       </div>
     `;
-  });
-
-  container.innerHTML = html;
+  }).join('');
 }
 
-function refreshMyOrdersView() {
-  const modal = document.getElementById('myOrdersModal');
-  if (modal && modal.style.display === 'flex') {
-    searchMyOrders();
-  }
-}
+async function cancelCustomerOrder(orderId) {
+  if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟')) return;
 
-async function cancelFullOrder(orderId) {
-  if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟ سيتم استرجاع الكتب إلى المتجر فوراً.')) return;
-  
   try {
     const res = await fetch('/api/orders/cancel', {
       method: 'POST',
@@ -254,48 +280,15 @@ async function cancelFullOrder(orderId) {
       body: JSON.stringify({ orderId })
     });
     const data = await res.json();
-    
-    if (res.ok && data.success) {
-      alert('✅ تم إلغاء الطلب بنجاح واسترجاع الكتب إلى المتجر');
-      // تحديث قائمة الطلبات محلياً وفورياً
-      allOrders = allOrders.filter(o => o.id !== orderId);
+    if (data.success) {
+      alert('تم إلغاء الطلب بنجاح');
       searchMyOrders();
     } else {
-      alert(data.message || 'حدث خطأ أثناء محاولة الإلغاء');
+      alert(data.message || 'تعذر إلغاء الطلب');
     }
   } catch (err) {
-    alert('تعذر الاتصال بالسيرفر، يرجى المحاولة بعد لحظات');
+    alert('حدث خطأ أثناء محاولة الإلغاء');
   }
 }
 
-async function removeItemFromOrder(orderId, itemId) {
-  if (!confirm('هل تريد إزالة هذا الكتاب من الطلب؟ سيتم إعادة الكتاب للمتجر وتعديل قيمة الفاتورة.')) return;
-  
-  try {
-    const res = await fetch('/api/orders/remove-item', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, itemId })
-    });
-    const data = await res.json();
-    
-    if (res.ok && data.success) {
-      alert('✅ تم تعديل الطلب وإعادة الكتاب للمخزون');
-      const orderIdx = allOrders.findIndex(o => o.id === orderId);
-      if (orderIdx !== -1) {
-        if (data.order && data.order.items && data.order.items.length > 0) {
-          allOrders[orderIdx] = data.order;
-        } else {
-          allOrders.splice(orderIdx, 1);
-        }
-      }
-      searchMyOrders();
-    } else {
-      alert(data.message || 'حدث خطأ أثناء التعديل');
-    }
-  } catch (err) {
-    alert('تعذر الاتصال بالسيرفر، يرجى المحاولة بعد لحظات');
-  }
-}
-
-init();
+window.onload = loadData;
