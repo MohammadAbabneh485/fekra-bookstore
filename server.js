@@ -52,8 +52,14 @@ const Category = mongoose.model('Category', new mongoose.Schema({
   name: { type: String, unique: true }
 }));
 
-// جلب البيانات بدون حقل الصورة الضخم لتسريع النقل الفوري
-async function getFullData() {
+// جلب البيانات مع الكاش السريع
+let cachedData = null;
+
+async function getFullData(forceRefresh = false) {
+  if (cachedData && !forceRefresh) {
+    return cachedData;
+  }
+
   const books = await Book.find({ quantity: { $gt: 0 } }, '-image').lean();
   const orders = await Order.find().sort({ _id: -1 }).lean();
   let categories = await Category.find().lean();
@@ -64,15 +70,17 @@ async function getFullData() {
     categories = await Category.find().lean();
   }
   
-  return {
+  cachedData = {
     books: books.map(b => ({
       ...b,
       id: b._id.toString(),
-      image: `/api/book-image/${b._id.toString()}` // رابط منفصل وسريع للصورة
+      image: `/api/book-image/${b._id.toString()}`
     })),
     orders: orders.map(o => ({ ...o, id: o.orderId || o._id.toString() })),
     categories: categories.map(c => c.name)
   };
+
+  return cachedData;
 }
 
 // مسارات الصفحات
@@ -80,7 +88,7 @@ app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/', (req, res) => res.redirect('/shop'));
 
-// مسار إرسال صورة كتاب محدد عند طلبها فقط
+// مسار إرسال صورة كتاب محدد بسرعة عالية
 app.get('/api/book-image/:id', async (req, res) => {
   try {
     const book = await Book.findById(req.params.id, 'image').lean();
@@ -93,7 +101,7 @@ app.get('/api/book-image/:id', async (req, res) => {
       const mimeType = parts[0].replace('data:', '');
       const imgBuffer = Buffer.from(parts[1], 'base64');
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Cache-Control', 'public, max-age=86400'); // تخزين مؤقت لسرعة التصفح
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.send(imgBuffer);
     }
 
@@ -103,7 +111,7 @@ app.get('/api/book-image/:id', async (req, res) => {
   }
 });
 
-// مسار قراءة البيانات السريع جداً (< 15KB)
+// مسار قراءة البيانات السريع جداً
 app.get('/api/data', async (req, res) => {
   try {
     res.json(await getFullData());
@@ -116,8 +124,8 @@ app.get('/api/data', async (req, res) => {
 app.post('/api/categories', async (req, res) => {
   const { name } = req.body;
   if (name) {
-    await Category.findOneAndUpdate({ name }, { name }, { upsert: true });
-    io.emit('data_updated', await getFullData());
+    await Category.findOneAndUpdate({ name: name.trim() }, { name: name.trim() }, { upsert: true });
+    io.emit('data_updated', await getFullData(true));
   }
   res.json({ success: true });
 });
@@ -128,18 +136,18 @@ app.post('/api/books', async (req, res) => {
   const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : [category || 'عام'];
 
   const book = new Book({
-    title,
-    author: author || 'غير محدد',
-    price: parseFloat(price),
+    title: title?.trim(),
+    author: author?.trim() || 'غير محدد',
+    price: parseFloat(price) || 0,
     categories: selectedCats,
     category: selectedCats[0],
     quantity: parseInt(quantity) || 1,
     image,
-    description: description || ''
+    description: description?.trim() || ''
   });
 
   await book.save();
-  io.emit('data_updated', await getFullData());
+  io.emit('data_updated', await getFullData(true));
   res.json({ success: true, book });
 });
 
@@ -156,7 +164,7 @@ app.post('/api/books/quantity', async (req, res) => {
     await book.save();
   }
 
-  io.emit('data_updated', await getFullData());
+  io.emit('data_updated', await getFullData(true));
   res.json({ success: true });
 });
 
@@ -164,7 +172,7 @@ app.post('/api/books/quantity', async (req, res) => {
 app.post('/api/books/delete', async (req, res) => {
   const { bookId } = req.body;
   await Book.findByIdAndDelete(bookId);
-  io.emit('data_updated', await getFullData());
+  io.emit('data_updated', await getFullData(true));
   res.json({ success: true });
 });
 
@@ -193,10 +201,10 @@ app.post('/api/order', async (req, res) => {
 
   const newOrder = new Order({
     orderId,
-    customerName,
-    phone,
-    address,
-    city,
+    customerName: customerName.trim(),
+    phone: phone.trim(),
+    address: address?.trim() || '',
+    city: city.trim(),
     items,
     deliveryFee: 2,
     total: items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.qty)), 0) + 2,
@@ -208,7 +216,7 @@ app.post('/api/order', async (req, res) => {
 
   await newOrder.save();
 
-  const fullData = await getFullData();
+  const fullData = await getFullData(true);
   io.emit('data_updated', fullData);
   io.emit('new_order', newOrder);
 
@@ -253,7 +261,7 @@ app.post('/api/orders/cancel', async (req, res) => {
   order.status = 'ملغي';
   await order.save();
 
-  const fullData = await getFullData();
+  const fullData = await getFullData(true);
   io.emit('data_updated', fullData);
   res.json({ success: true, message: 'تم إلغاء الطلب بنجاح' });
 });
@@ -274,7 +282,7 @@ app.post('/api/orders/status', async (req, res) => {
   order.status = newStatus;
   await order.save();
 
-  const fullData = await getFullData();
+  const fullData = await getFullData(true);
   io.emit('data_updated', fullData);
   res.json({ success: true, order });
 });
