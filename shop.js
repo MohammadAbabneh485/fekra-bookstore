@@ -173,6 +173,7 @@ function handleModalOutsideClick(e) {
   if (e.target.id === 'bookDetailsModal') closeBookModal();
 }
 
+// إضافة الكتاب مع حفظ كامل بياناته (المؤلف، الأقسام، الصورة، والوصف)
 function addToCart(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -188,7 +189,12 @@ function addToCart(bookId) {
     cart.push({
       id: book.id || book._id,
       title: book.title,
+      author: book.author || 'غير محدد',
       price: book.price,
+      categories: Array.isArray(book.categories) && book.categories.length > 0 ? book.categories : [book.category || 'عام'],
+      category: (book.categories && book.categories[0]) || book.category || 'عام',
+      image: book.image || 'logo.jpg.jpeg',
+      description: book.description || '',
       qty: 1,
       maxQty: book.quantity
     });
