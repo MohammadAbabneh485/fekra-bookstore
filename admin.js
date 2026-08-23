@@ -6,9 +6,33 @@ if (fileInput) {
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
+      // ضغط وتصغير أبعاد الصورة لتقليل حجمها وسرعة نقلها
       const reader = new FileReader();
       reader.onload = function(evt) {
-        currentImageBase64 = evt.target.result;
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const maxDim = 600; // تصغير الأبعاد لتناسب العرض السريع
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // تصدير بجودة WebP/JPEG خفيفة جداً (< 50KB)
+          currentImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        };
+        img.src = evt.target.result;
       };
       reader.readAsDataURL(file);
     }
@@ -24,13 +48,17 @@ socket.on('new_order', (order) => {
 });
 
 async function initAdmin() {
-  const res = await fetch('/api/data');
-  const data = await res.json();
-  renderData(data);
+  try {
+    const res = await fetch('/api/data');
+    const data = await res.json();
+    renderData(data);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 function renderData(data) {
-  // 1. ملء مربعات اختيار الأقسام (Checkboxes)
+  // 1. مربعات اختيار الأقسام
   const catListContainer = document.getElementById('categoriesCheckboxList');
   if (catListContainer) {
     catListContainer.innerHTML = '';
@@ -44,7 +72,7 @@ function renderData(data) {
     });
   }
 
-  // 2. ملء الكتب المتوفرة مع أزرار التحكم
+  // 2. عرض الكتب
   const booksContainer = document.getElementById('adminBooksList');
   if (booksContainer) {
     booksContainer.innerHTML = '';
@@ -56,14 +84,13 @@ function renderData(data) {
         booksContainer.innerHTML += `
           <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
             <div>
-              <img src="${book.image || 'logo.jpg.jpeg'}" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src='logo.jpg.jpeg'">
+              <img src="${book.image || 'logo.jpg.jpeg'}" loading="lazy" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src='logo.jpg.jpeg'">
               <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
               <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
               <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
               <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">📂 ${catsDisplay}</span>
             </div>
 
-            <!-- أزرار التحكم في الكمية والحذف -->
             <div style="margin-top:12px; border-top:1px solid #F1F5F9; padding-top:10px;">
               <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
                 <button onclick="changeBookQty('${book.id}', -1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">-</button>
@@ -81,7 +108,7 @@ function renderData(data) {
     }
   }
 
-  // 3. تجميع وعرض الطلبات الواردة
+  // 3. عرض الطلبات
   const ordersContainer = document.getElementById('ordersList');
   if (!ordersContainer) return;
   ordersContainer.innerHTML = '';
@@ -112,7 +139,6 @@ function renderData(data) {
       const isCancelled = ord.status === 'ملغي';
       const isDone = ord.status === 'تم التجهيز';
 
-      // تحديد خلفية وحدود البطاقة حسب الحالة
       let cardBg = '#FFFFFF';
       let cardBorder = '#E2E8F0';
       if (isCancelled) {
@@ -123,17 +149,12 @@ function renderData(data) {
         cardBorder = '#86EFAC';
       }
 
-      // تحديد شريط الإجراءات السفلي
       let statusFooterHTML = '';
       if (isCancelled) {
         statusFooterHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #FCA5A5; padding-top:8px;">
-            <span style="font-size:12px; font-weight:800; color:#DC2626;">
-              ❌ الحالة: ملغي
-            </span>
-            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">
-              تم إلغاء الطلب من العميل
-            </span>
+            <span style="font-size:12px; font-weight:800; color:#DC2626;">❌ الحالة: ملغي</span>
+            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">تم إلغاء الطلب من العميل</span>
           </div>
         `;
       } else {
@@ -178,7 +199,6 @@ function renderData(data) {
   }
 }
 
-// تعديل الكمية (+ أو -)
 async function changeBookQty(bookId, change) {
   await fetch('/api/books/quantity', {
     method: 'POST',
@@ -187,7 +207,6 @@ async function changeBookQty(bookId, change) {
   });
 }
 
-// حذف الكتاب نهائياً
 async function deleteBook(bookId, title) {
   if (!confirm(`هل أنت متأكد من حذف كتاب "${title}" نهائياً من المتجر؟`)) return;
   await fetch('/api/books/delete', {
@@ -197,7 +216,6 @@ async function deleteBook(bookId, title) {
   });
 }
 
-// تعديل حالة الطلب
 async function toggleOrderStatus(orderId, newStatus) {
   try {
     const res = await fetch('/api/orders/status', {
@@ -206,15 +224,12 @@ async function toggleOrderStatus(orderId, newStatus) {
       body: JSON.stringify({ orderId, status: newStatus })
     });
     const result = await res.json();
-    if (!result.success && result.message) {
-      alert(result.message);
-    }
+    if (!result.success && result.message) alert(result.message);
   } catch (err) {
     alert('حدث خطأ أثناء تعديل حالة الطلب');
   }
 }
 
-// إضافة قسم
 async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
   if (!name) return;
@@ -226,7 +241,6 @@ async function addCategory() {
   document.getElementById('newCatName').value = '';
 }
 
-// حفظ ونشر كتاب جديد
 async function saveBook() {
   const title = document.getElementById('bookTitle').value.trim();
   const author = document.getElementById('bookAuthor').value.trim();
@@ -245,28 +259,37 @@ async function saveBook() {
     return alert('يرجى اختيار قسم واحد على الأقل للكتاب');
   }
 
-  await fetch('/api/books', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title,
-      author,
-      categories: selectedCategories,
-      category: selectedCategories[0],
-      price,
-      quantity,
-      description,
-      image: currentImageBase64
-    })
-  });
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerText = 'جارٍ النشر...';
 
-  document.getElementById('bookTitle').value = '';
-  if (document.getElementById('bookAuthor')) document.getElementById('bookAuthor').value = '';
-  document.getElementById('bookPrice').value = '';
-  if (document.getElementById('bookDesc')) document.getElementById('bookDesc').value = '';
-  document.getElementById('bookImageFile').value = '';
-  currentImageBase64 = '';
-  alert('تمت إضافة الكتاب بنجاح ونشره في الأقسام المحددة!');
+  try {
+    await fetch('/api/books', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        author,
+        categories: selectedCategories,
+        category: selectedCategories[0],
+        price,
+        quantity,
+        description,
+        image: currentImageBase64
+      })
+    });
+
+    document.getElementById('bookTitle').value = '';
+    if (document.getElementById('bookAuthor')) document.getElementById('bookAuthor').value = '';
+    document.getElementById('bookPrice').value = '';
+    if (document.getElementById('bookDesc')) document.getElementById('bookDesc').value = '';
+    document.getElementById('bookImageFile').value = '';
+    currentImageBase64 = '';
+    alert('تم نشر الكتاب بنجاح وبسرعة فائقة!');
+  } finally {
+    btn.disabled = false;
+    btn.innerText = 'نشر الكتاب في المتجر';
+  }
 }
 
 initAdmin();
