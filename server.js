@@ -4,13 +4,16 @@ const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const compression = require('compression'); // إضافة مكتبة الضغط
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
+app.use(compression()); // تفعيل ضغط الاستجابات لتسريع التحميل 10 أضعاف
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(__dirname));
 
 // الاتصال بقاعدة البيانات عبر متغير البيئة MONGO_URI
