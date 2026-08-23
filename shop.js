@@ -6,7 +6,7 @@ let cart = [];
 let currentCategory = 'all';
 let isSubmitting = false;
 
-// تحميل البيانات السريع
+// تحميل البيانات السريع والمباشر
 async function loadData() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -22,7 +22,7 @@ async function loadData() {
   if (empty) empty.style.display = 'none';
 
   try {
-    const res = await fetch('/api/data');
+    const res = await fetch('/api/data', { cache: 'no-cache' });
     if (!res.ok) throw new Error('Server warm up');
     const data = await res.json();
     
@@ -33,7 +33,7 @@ async function loadData() {
     renderCategories();
     renderBooks();
   } catch (err) {
-    setTimeout(loadData, 2000);
+    setTimeout(loadData, 1000);
   }
 }
 
@@ -41,6 +41,7 @@ socket.on('data_updated', (data) => {
   allBooks = data.books || [];
   allOrders = data.orders || [];
   allCategories = data.categories || [];
+  renderCategories();
   renderBooks();
   const trackInput = document.getElementById('trackPhoneInput');
   if (trackInput && trackInput.value.trim()) {
@@ -244,7 +245,6 @@ function closeCart() {
   document.getElementById('cartModal').style.display = 'none';
 }
 
-// تثبيت الطلب مع الحماية التامة من التكرار والضغط المزدوج
 async function submitOrder() {
   if (isSubmitting) return;
 
@@ -262,12 +262,13 @@ async function submitOrder() {
     return;
   }
 
-  // قفل الزر مباشرة لمنع الطلبات المزدوجة
   isSubmitting = true;
   const submitBtn = document.querySelector('#cartModal .add-btn');
-  const originalText = submitBtn.innerText;
-  submitBtn.disabled = true;
-  submitBtn.innerText = 'جارٍ تثبيت الطلب...';
+  const originalText = submitBtn ? submitBtn.innerText : 'تثبيت الطلب';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'جارٍ تثبيت الطلب...';
+  }
 
   try {
     const res = await fetch('/api/order', {
@@ -292,8 +293,10 @@ async function submitOrder() {
     alert('تعذر الاتصال بالسيرفر');
   } finally {
     isSubmitting = false;
-    submitBtn.disabled = false;
-    submitBtn.innerText = originalText;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerText = originalText;
+    }
   }
 }
 
@@ -389,4 +392,5 @@ async function cancelCustomerOrder(orderId, btn) {
   }
 }
 
-window.onload = loadData;
+// التشغيل الفوري المباشر
+loadData();
