@@ -4,8 +4,9 @@ let allOrders = [];
 let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
+let isSubmitting = false;
 
-// تحميل البيانات الأساسية مع معالجة استيقاظ السيرفر
+// تحميل البيانات السريع
 async function loadData() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -13,9 +14,8 @@ async function loadData() {
   if (grid && allBooks.length === 0) {
     grid.innerHTML = `
       <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
-        <div style="font-size: 32px; margin-bottom: 12px; display: inline-block; animation: pulse 1.5s infinite;">⏳</div>
-        <h4 style="color: #0f172a; font-size: 16px; font-weight: 800; margin-bottom: 6px;">جارٍ تجهيز المتجر وتحميل الكتب...</h4>
-        <p style="color: #64748b; font-size: 13px;">يرجى الانتظار بضع ثوانٍ</p>
+        <div style="font-size: 32px; margin-bottom: 12px; display: inline-block;">⏳</div>
+        <h4 style="color: #0f172a; font-size: 15px; font-weight: 800; margin-bottom: 6px;">جارٍ تجهيز المتجر وتحميل الكتب...</h4>
       </div>
     `;
   }
@@ -23,7 +23,7 @@ async function loadData() {
 
   try {
     const res = await fetch('/api/data');
-    if (!res.ok) throw new Error('Server starting...');
+    if (!res.ok) throw new Error('Server warm up');
     const data = await res.json();
     
     allBooks = data.books || [];
@@ -33,18 +33,14 @@ async function loadData() {
     renderCategories();
     renderBooks();
   } catch (err) {
-    console.log('السيرفر قيد التشغيل، إعادة المحاولة بعد ثانيتين...');
-    // إعادة المحاولة تلقائياً كل ثانيتين حتى يستجيب السيرفر
     setTimeout(loadData, 2000);
   }
 }
 
-// التحديثات اللحظية عبر Socket.io
 socket.on('data_updated', (data) => {
   allBooks = data.books || [];
   allOrders = data.orders || [];
   allCategories = data.categories || [];
-  renderCategories();
   renderBooks();
   const trackInput = document.getElementById('trackPhoneInput');
   if (trackInput && trackInput.value.trim()) {
@@ -72,7 +68,6 @@ function handleSearch() {
   renderBooks();
 }
 
-// رسم شبكة الكتب
 function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -102,22 +97,20 @@ function renderBooks() {
   grid.innerHTML = filtered.map(b => {
     const bookId = b.id || b._id;
     return `
-      <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03); transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
-        
-        <div style="cursor:pointer;" onclick="openBookModal('${bookId}')" title="اضغط لعرض تفاصيل الكتاب كاملة">
+      <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+        <div style="cursor:pointer;" onclick="openBookModal('${bookId}')">
           <div style="overflow:hidden; border-radius:10px; margin-bottom:12px; position:relative; background:#f8fafc;">
-            <img src="${b.image || 'logo.jpg.jpeg'}" alt="${b.title}" style="width:100%; height:220px; object-fit:cover; display:block; transition:transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onerror="this.src='logo.jpg.jpeg'">
-            <span style="position:absolute; bottom:8px; right:8px; background:rgba(15, 23, 42, 0.8); backdrop-filter:blur(2px); color:#fff; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:bold;">🔎 عرض الغلاف والوصف</span>
+            <img src="${b.image || 'logo.jpg.jpeg'}" loading="lazy" alt="${b.title}" style="width:100%; height:220px; object-fit:cover; display:block;" onerror="this.src='logo.jpg.jpeg'">
+            <span style="position:absolute; bottom:8px; right:8px; background:rgba(15, 23, 42, 0.8); color:#fff; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:bold;">🔎 تفاصيل</span>
           </div>
-          <h4 style="margin:0 0 4px 0; font-size:16px; font-weight:800; color:#0f172a; line-height:1.4;">${b.title}</h4>
-          <p style="color:#64748b; font-size:13px; margin:0 0 6px 0;">المؤلف: ${b.author || 'غير محدد'}</p>
+          <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:#0f172a;">${b.title}</h4>
+          <p style="color:#64748b; font-size:12px; margin:0 0 6px 0;">المؤلف: ${b.author || 'غير محدد'}</p>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="color:#b45309; font-weight:900; font-size:16px;">${b.price} د.أ</span>
+            <span style="color:#b45309; font-weight:900; font-size:15px;">${b.price} د.أ</span>
             <span style="color:#16a34a; font-size:12px; font-weight:700; background:#dcfce7; padding:2px 8px; border-radius:12px;">متوفر: ${b.quantity}</span>
           </div>
         </div>
-
-        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%; transition:background 0.2s;" onmouseover="this.style.background='#0f172a'" onmouseout="this.style.background='#1e293b'">
+        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
           أضف للسلة 🛒
         </button>
       </div>
@@ -125,7 +118,6 @@ function renderBooks() {
   }).join('');
 }
 
-// نافذة التفاصيل
 function openBookModal(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -135,40 +127,33 @@ function openBookModal(bookId) {
   const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
 
   body.innerHTML = `
-    <button class="close-details-btn" onclick="closeBookModal()" title="إغلاق">✕</button>
-
+    <button class="close-details-btn" onclick="closeBookModal()">✕</button>
     <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0;">
-      <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:480px; object-fit:contain; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08);" onerror="this.src='logo.jpg.jpeg'">
+      <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:450px; object-fit:contain; border-radius:8px;" onerror="this.src='logo.jpg.jpeg'">
     </div>
-
     <div style="display:flex; flex-direction:column; justify-content:space-between; text-align:right;">
       <div>
         <div style="margin-bottom:8px;">
           <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700;">📂 ${catsDisplay}</span>
         </div>
-        <h2 style="margin:0 0 8px 0; font-size:22px; color:#0f172a; font-weight:900; line-height:1.3;">${book.title}</h2>
-        <p style="color:#64748b; font-size:15px; margin:0 0 16px 0;">المؤلف: <b style="color:#334155;">${book.author || 'غير محدد'}</b></p>
+        <h2 style="margin:0 0 8px 0; font-size:20px; color:#0f172a; font-weight:900;">${book.title}</h2>
+        <p style="color:#64748b; font-size:14px; margin:0 0 16px 0;">المؤلف: <b style="color:#334155;">${book.author || 'غير محدد'}</b></p>
         
-        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:20px;">
-          <div style="font-weight:800; color:#0f172a; font-size:14px; margin-bottom:6px;">📖 نبذة عن الكتاب وحالته:</div>
-          <p style="color:#334155; font-size:14px; line-height:1.7; margin:0; white-space:pre-line;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:15px;">
+          <div style="font-weight:800; color:#0f172a; font-size:13px; margin-bottom:4px;">📖 نبذة عن الكتاب:</div>
+          <p style="color:#334155; font-size:13px; line-height:1.6; margin:0;">
             ${book.description ? book.description : 'كتاب بحالة ممتازة وجاهز للتوصيل مباشرة.'}
           </p>
         </div>
       </div>
 
       <div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-top:1px dashed #e2e8f0; padding-top:12px;">
-          <div>
-            <span style="font-size:13px; color:#64748b; display:block;">السعر:</span>
-            <span style="font-size:22px; font-weight:900; color:#b45309;">${book.price} د.أ</span>
-          </div>
-          <div>
-            <span style="font-size:13px; color:#16a34a; font-weight:700; background:#dcfce7; padding:4px 12px; border-radius:10px;">متوفر بالمخزون: ${book.quantity} نسخ</span>
-          </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-top:1px dashed #e2e8f0; padding-top:10px;">
+          <span style="font-size:20px; font-weight:900; color:#b45309;">${book.price} د.أ</span>
+          <span style="font-size:12px; color:#16a34a; font-weight:700; background:#dcfce7; padding:4px 10px; border-radius:8px;">متوفر: ${book.quantity} نسخ</span>
         </div>
 
-        <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:15px; cursor:pointer; width:100%; box-shadow:0 4px 12px rgba(22,163,74,0.25); transition:0.2s;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+        <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; width:100%;">
           إضافة هذا الكتاب إلى السلة 🛒
         </button>
       </div>
@@ -184,12 +169,9 @@ function closeBookModal() {
 }
 
 function handleModalOutsideClick(e) {
-  if (e.target.id === 'bookDetailsModal') {
-    closeBookModal();
-  }
+  if (e.target.id === 'bookDetailsModal') closeBookModal();
 }
 
-// السلة والطلبات
 function addToCart(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -262,7 +244,10 @@ function closeCart() {
   document.getElementById('cartModal').style.display = 'none';
 }
 
+// تثبيت الطلب مع الحماية التامة من التكرار والضغط المزدوج
 async function submitOrder() {
+  if (isSubmitting) return;
+
   if (cart.length === 0) {
     alert('السلة فارغة!');
     return;
@@ -276,6 +261,13 @@ async function submitOrder() {
     alert('يرجى ملء كافة الحقول الإجبارية (*)');
     return;
   }
+
+  // قفل الزر مباشرة لمنع الطلبات المزدوجة
+  isSubmitting = true;
+  const submitBtn = document.querySelector('#cartModal .add-btn');
+  const originalText = submitBtn.innerText;
+  submitBtn.disabled = true;
+  submitBtn.innerText = 'جارٍ تثبيت الطلب...';
 
   try {
     const res = await fetch('/api/order', {
@@ -298,10 +290,13 @@ async function submitOrder() {
     }
   } catch (err) {
     alert('تعذر الاتصال بالسيرفر');
+  } finally {
+    isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.innerText = originalText;
   }
 }
 
-// متابعة الطلبات
 function openMyOrdersModal() {
   document.getElementById('myOrdersModal').style.display = 'flex';
 }
@@ -342,7 +337,7 @@ function searchMyOrders() {
     } else if (order.status === 'تم التجهيز') {
       actionBtn = `<div style="background:#dcfce7; color:#15803d; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم تجهيز وتغليف طلبك وهو جاهز للشحن</div>`;
     } else {
-      actionBtn = `<button onclick="cancelCustomerOrder('${orderIdVal}')" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; border-radius:6px; width:100%; cursor:pointer; font-weight:bold; margin-top:10px;">إلغاء الطلب بالكامل ✖</button>`;
+      actionBtn = `<button onclick="cancelCustomerOrder('${orderIdVal}', this)" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; border-radius:6px; width:100%; cursor:pointer; font-weight:bold; margin-top:10px;">إلغاء الطلب بالكامل ✖</button>`;
     }
 
     return `
@@ -366,8 +361,13 @@ function searchMyOrders() {
   }).join('');
 }
 
-async function cancelCustomerOrder(orderId) {
+async function cancelCustomerOrder(orderId, btn) {
   if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟')) return;
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'جارٍ الإلغاء...';
+  }
 
   try {
     const res = await fetch('/api/orders/cancel', {
@@ -381,9 +381,11 @@ async function cancelCustomerOrder(orderId) {
       searchMyOrders();
     } else {
       alert(data.message || 'تعذر إلغاء الطلب');
+      if (btn) btn.disabled = false;
     }
   } catch (err) {
     alert('حدث خطأ أثناء محاولة الإلغاء');
+    if (btn) btn.disabled = false;
   }
 }
 
