@@ -65,7 +65,7 @@ async function getFullData() {
   
   return {
     books: books.map(b => ({ ...b.toObject(), id: b._id.toString() })),
-    orders: orders.map(o => ({ ...o.toObject(), id: o.orderId })),
+    orders: orders.map(o => ({ ...o.toObject(), id: o.orderId || o._id.toString() })),
     categories: categories.map(c => c.name)
   };
 }
@@ -187,8 +187,12 @@ app.post('/api/order', async (req, res) => {
 
 // إلغاء الطلب: تحويل حالته إلى "ملغي" في الداتابيز واسترجاع الكتب لمرة واحدة فقط
 app.post('/api/orders/cancel', async (req, res) => {
-  const { orderId } = req.body;
-  const order = await Order.findOne({ orderId });
+  const targetId = req.body.orderId || req.body.id;
+  
+  let order = await Order.findOne({ orderId: targetId });
+  if (!order && mongoose.Types.ObjectId.isValid(targetId)) {
+    order = await Order.findById(targetId);
+  }
 
   if (!order) {
     return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
@@ -206,13 +210,16 @@ app.post('/api/orders/cancel', async (req, res) => {
 
   // إعادة كميات الكتب إلى الداتابيز لمرة واحدة فقط
   for (const item of order.items) {
-    const existing = await Book.findById(item.id);
+    let existing = null;
+    if (mongoose.Types.ObjectId.isValid(item.id)) {
+      existing = await Book.findById(item.id);
+    }
     if (existing) {
       existing.quantity += item.qty;
       await existing.save();
     } else {
       await Book.create({
-        _id: item.id,
+        ...(mongoose.Types.ObjectId.isValid(item.id) ? { _id: item.id } : {}),
         title: item.title,
         author: item.author || 'غير محدد',
         price: item.price,
@@ -235,19 +242,31 @@ app.post('/api/orders/cancel', async (req, res) => {
   res.json({ success: true, message: 'تم إلغاء الطلب بنجاح واسترجاع الكتب للمتجر' });
 });
 
-// تعديل حالة الطلب يدوياً (جديد / تم التجهيز / ملغي)
+// تعديل حالة الطلب من الأدمن (مع منع تعديل الطلبات الملغية نهائياً)
 app.post('/api/orders/status', async (req, res) => {
-  const { orderId, status } = req.body;
-  const order = await Order.findOne({ orderId });
+  const targetId = req.body.orderId || req.body.id;
+  const newStatus = req.body.status;
 
-  if (order) {
-    order.status = status;
-    await order.save();
-    io.emit('data_updated', await getFullData());
-    res.json({ success: true, order });
-  } else {
-    res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+  let order = await Order.findOne({ orderId: targetId });
+  if (!order && mongoose.Types.ObjectId.isValid(targetId)) {
+    order = await Order.findById(targetId);
   }
+
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+  }
+
+  // قفل الطلب الملغي نهائياً ومنع تحويله إلى تم التجهيز أو غيرها
+  if (order.status === 'ملغي') {
+    return res.status(400).json({ success: false, message: 'هذا الطلب تم إلغاؤه مسبقاً ولا يمكن تعديل حالته' });
+  }
+
+  order.status = newStatus;
+  await order.save();
+
+  const fullData = await getFullData();
+  io.emit('data_updated', fullData);
+  res.json({ success: true, order });
 });
 
 const PORT = process.env.PORT || 3000;
