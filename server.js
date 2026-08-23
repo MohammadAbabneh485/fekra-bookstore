@@ -60,6 +60,7 @@ async function getFullData(forceRefresh = false) {
     return cachedData;
   }
 
+  // جلب الكتب التي كميتها أكبر من صفر فقط للمتجر
   const books = await Book.find({ quantity: { $gt: 0 } }, '-image').lean();
   const orders = await Order.find().sort({ _id: -1 }).lean();
   let categories = await Category.find().lean();
@@ -157,18 +158,14 @@ app.post('/api/books/quantity', async (req, res) => {
   const book = await Book.findById(bookId);
   if (!book) return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
 
-  book.quantity += parseInt(change);
-  if (book.quantity <= 0) {
-    await Book.findByIdAndDelete(bookId);
-  } else {
-    await book.save();
-  }
+  book.quantity = Math.max(0, book.quantity + parseInt(change));
+  await book.save();
 
   io.emit('data_updated', await getFullData(true));
   res.json({ success: true });
 });
 
-// حذف كتاب
+// حذف كتاب نهائياً بطلب من الأدمن فقط
 app.post('/api/books/delete', async (req, res) => {
   const { bookId } = req.body;
   await Book.findByIdAndDelete(bookId);
@@ -176,7 +173,7 @@ app.post('/api/books/delete', async (req, res) => {
   res.json({ success: true });
 });
 
-// إنشاء طلب جديد
+// إنشاء طلب جديد (تصفير الكمية دون حذف السجل لحفظ القسم والتفاصيل)
 app.post('/api/order', async (req, res) => {
   const { customerName, phone, address, city, items } = req.body;
 
@@ -184,12 +181,8 @@ app.post('/api/order', async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(item.id)) {
       const book = await Book.findById(item.id);
       if (book) {
-        book.quantity -= parseInt(item.qty) || 1;
-        if (book.quantity <= 0) {
-          await Book.findByIdAndDelete(item.id);
-        } else {
-          await book.save();
-        }
+        book.quantity = Math.max(0, book.quantity - (parseInt(item.qty) || 1));
+        await book.save();
       }
     }
   }
@@ -223,7 +216,7 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// إلغاء الطلب
+// إلغاء الطلب واسترجاع الكتاب مع كامل بياناته الأصلية
 app.post('/api/orders/cancel', async (req, res) => {
   const targetId = req.body.orderId || req.body.id;
   let order = await Order.findOne({ orderId: targetId });
@@ -240,17 +233,27 @@ app.post('/api/orders/cancel', async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(item.id)) {
       existing = await Book.findById(item.id);
     }
+    
+    // إذا كان الكتاب موجوداً بالاسم مسبقاً
+    if (!existing && item.title) {
+      existing = await Book.findOne({ title: item.title });
+    }
+
     if (existing) {
       existing.quantity += parseInt(item.qty) || 1;
       await existing.save();
     } else {
+      const itemCats = Array.isArray(item.categories) && item.categories.length > 0 
+        ? item.categories 
+        : [item.category || 'عام'];
+
       await Book.create({
         ...(mongoose.Types.ObjectId.isValid(item.id) ? { _id: item.id } : {}),
         title: item.title,
         author: item.author || 'غير محدد',
         price: item.price,
-        categories: item.categories || [item.category || 'عام'],
-        category: item.category || 'عام',
+        categories: itemCats,
+        category: itemCats[0],
         quantity: parseInt(item.qty) || 1,
         image: item.image || 'logo.jpg.jpeg',
         description: item.description || ''
