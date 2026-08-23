@@ -5,18 +5,37 @@ let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
 
-// تحميل البيانات الأساسية
+// تحميل البيانات الأساسية مع معالجة استيقاظ السيرفر
 async function loadData() {
+  const grid = document.getElementById('booksGrid');
+  const empty = document.getElementById('emptyState');
+  
+  if (grid && allBooks.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px;">
+        <div style="font-size: 32px; margin-bottom: 12px; display: inline-block; animation: pulse 1.5s infinite;">⏳</div>
+        <h4 style="color: #0f172a; font-size: 16px; font-weight: 800; margin-bottom: 6px;">جارٍ تجهيز المتجر وتحميل الكتب...</h4>
+        <p style="color: #64748b; font-size: 13px;">يرجى الانتظار بضع ثوانٍ</p>
+      </div>
+    `;
+  }
+  if (empty) empty.style.display = 'none';
+
   try {
     const res = await fetch('/api/data');
+    if (!res.ok) throw new Error('Server starting...');
     const data = await res.json();
+    
     allBooks = data.books || [];
     allOrders = data.orders || [];
     allCategories = data.categories || [];
+    
     renderCategories();
     renderBooks();
   } catch (err) {
-    console.error('Error fetching data:', err);
+    console.log('السيرفر قيد التشغيل، إعادة المحاولة بعد ثانيتين...');
+    // إعادة المحاولة تلقائياً كل ثانيتين حتى يستجيب السيرفر
+    setTimeout(loadData, 2000);
   }
 }
 
@@ -25,6 +44,7 @@ socket.on('data_updated', (data) => {
   allBooks = data.books || [];
   allOrders = data.orders || [];
   allCategories = data.categories || [];
+  renderCategories();
   renderBooks();
   const trackInput = document.getElementById('trackPhoneInput');
   if (trackInput && trackInput.value.trim()) {
@@ -52,7 +72,7 @@ function handleSearch() {
   renderBooks();
 }
 
-// رسم بطاقات الكتب مع إتاحة النقر على البطاقة أو الغلاف
+// رسم شبكة الكتب
 function renderBooks() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -84,7 +104,6 @@ function renderBooks() {
     return `
       <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03); transition:transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 8px 20px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.03)'">
         
-        <!-- النقر على الصورة أو النصوص يفتح صفحة التفاصيل الواسعة -->
         <div style="cursor:pointer;" onclick="openBookModal('${bookId}')" title="اضغط لعرض تفاصيل الكتاب كاملة">
           <div style="overflow:hidden; border-radius:10px; margin-bottom:12px; position:relative; background:#f8fafc;">
             <img src="${b.image || 'logo.jpg.jpeg'}" alt="${b.title}" style="width:100%; height:220px; object-fit:cover; display:block; transition:transform 0.3s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" onerror="this.src='logo.jpg.jpeg'">
@@ -106,7 +125,7 @@ function renderBooks() {
   }).join('');
 }
 
-// فتح نافذة تفاصيل الكتاب الكبيرة والواضحة
+// نافذة التفاصيل
 function openBookModal(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
@@ -118,12 +137,10 @@ function openBookModal(bookId) {
   body.innerHTML = `
     <button class="close-details-btn" onclick="closeBookModal()" title="إغلاق">✕</button>
 
-    <!-- الجانب الأيمن: صورة الغلاف كاملة بدون قص -->
     <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0;">
       <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:480px; object-fit:contain; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.08);" onerror="this.src='logo.jpg.jpeg'">
     </div>
 
-    <!-- الجانب الأيسر: التفاصيل والوصف والطلب -->
     <div style="display:flex; flex-direction:column; justify-content:space-between; text-align:right;">
       <div>
         <div style="margin-bottom:8px;">
@@ -284,7 +301,7 @@ async function submitOrder() {
   }
 }
 
-// مودال متابعة الطلبات
+// متابعة الطلبات
 function openMyOrdersModal() {
   document.getElementById('myOrdersModal').style.display = 'flex';
 }
