@@ -16,6 +16,9 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(__dirname));
 
+// مسار خفيف جداً لـ UptimeRobot لإبقاء السيرفر نشطاً دون استهلاك باقة الإنترنت (حجمه 4 بايت فقط)
+app.get('/ping', (req, res) => res.status(200).send('pong'));
+
 const MONGO_URI = process.env.MONGO_URI;
 
 mongoose.connect(MONGO_URI)
