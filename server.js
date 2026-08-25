@@ -25,7 +25,7 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// إضافة timestamps لتسجيل تاريخ الإضافة createdAt لاستخدامه في "وصل حديثاً"
+// Schema الكتاب مع مصفوفة الصور المتعددة images
 const bookSchema = new mongoose.Schema({
   title: String,
   author: String,
@@ -34,6 +34,7 @@ const bookSchema = new mongoose.Schema({
   category: String,
   quantity: Number,
   image: String,
+  images: [String],
   description: String
 }, { timestamps: true });
 
@@ -66,7 +67,8 @@ async function getFullData(forceRefresh = false) {
     return cachedData;
   }
 
-  const books = await Book.find({ quantity: { $gt: 0 } }, '-image').sort({ createdAt: -1 }).lean();
+  // نجلب الكتب مع استثناء حقول الصور الضخمة من الكاش المباشر
+  const books = await Book.find({ quantity: { $gt: 0 } }, '-image -images').sort({ createdAt: -1 }).lean();
   const orders = await Order.find().sort({ _id: -1 }).lean();
   let categories = await Category.find().lean();
   
@@ -75,14 +77,31 @@ async function getFullData(forceRefresh = false) {
     await Category.insertMany(defaultCats.map(name => ({ name })));
     categories = await Category.find().lean();
   }
+
+  // معرفة عدد الصور لكل كتاب لإنشاء روابطها السريعة
+  const booksImagesCount = await Book.find({ quantity: { $gt: 0 } }, '_id images image').lean();
+  const imageCountMap = {};
+  booksImagesCount.forEach(b => {
+    const count = (b.images && b.images.length > 0) ? b.images.length : (b.image ? 1 : 0);
+    imageCountMap[b._id.toString()] = count;
+  });
   
   cachedData = {
-    books: books.map(b => ({
-      ...b,
-      id: b._id.toString(),
-      image: `/api/book-image/${b._id.toString()}`,
-      createdAt: b.createdAt || null
-    })),
+    books: books.map(b => {
+      const bId = b._id.toString();
+      const count = imageCountMap[bId] || 1;
+      const imagesList = [];
+      for (let i = 0; i < count; i++) {
+        imagesList.push(`/api/book-image/${bId}/${i}`);
+      }
+      return {
+        ...b,
+        id: bId,
+        image: `/api/book-image/${bId}/0`,
+        images: imagesList.length > 0 ? imagesList : [`/api/book-image/${bId}/0`],
+        createdAt: b.createdAt || null
+      };
+    }),
     orders: orders.map(o => ({ ...o, id: o.orderId || o._id.toString() })),
     categories: categories.map(c => c.name)
   };
@@ -95,16 +114,24 @@ app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/', (req, res) => res.redirect('/shop'));
 
-// مسار إرسال صورة كتاب محدد بسرعة عالية
-app.get('/api/book-image/:id', async (req, res) => {
+// مسار إرسال صورة كتاب محدد (سواء الغلاف أو أي صورة فرعية حسب الفهرس)
+app.get('/api/book-image/:id/:index?', async (req, res) => {
   try {
-    const book = await Book.findById(req.params.id, 'image').lean();
-    if (!book || !book.image) {
-      return res.redirect('/logo.jpg.jpeg');
+    const index = parseInt(req.params.index) || 0;
+    const book = await Book.findById(req.params.id, 'image images').lean();
+    if (!book) return res.redirect('/logo.jpg.jpeg');
+
+    let targetImg = null;
+    if (book.images && book.images.length > index) {
+      targetImg = book.images[index];
+    } else if (index === 0 && book.image) {
+      targetImg = book.image;
     }
 
-    if (book.image.startsWith('data:image')) {
-      const parts = book.image.split(';base64,');
+    if (!targetImg) return res.redirect('/logo.jpg.jpeg');
+
+    if (targetImg.startsWith('data:image')) {
+      const parts = targetImg.split(';base64,');
       const mimeType = parts[0].replace('data:', '');
       const imgBuffer = Buffer.from(parts[1], 'base64');
       res.setHeader('Content-Type', mimeType);
@@ -112,7 +139,7 @@ app.get('/api/book-image/:id', async (req, res) => {
       return res.send(imgBuffer);
     }
 
-    res.redirect(book.image);
+    res.redirect(targetImg);
   } catch (err) {
     res.redirect('/logo.jpg.jpeg');
   }
@@ -137,10 +164,11 @@ app.post('/api/categories', async (req, res) => {
   res.json({ success: true });
 });
 
-// إضافة كتاب جديد
+// إضافة كتاب جديد (يدعم مصفوفة الصور المتعددة)
 app.post('/api/books', async (req, res) => {
-  const { title, author, price, categories, category, quantity, image, description } = req.body;
+  const { title, author, price, categories, category, quantity, image, images, description } = req.body;
   const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : [category || 'عام'];
+  const allImages = Array.isArray(images) && images.length > 0 ? images : (image ? [image] : []);
 
   const book = new Book({
     title: title?.trim(),
@@ -149,7 +177,8 @@ app.post('/api/books', async (req, res) => {
     categories: selectedCats,
     category: selectedCats[0],
     quantity: parseInt(quantity) || 1,
-    image,
+    image: allImages[0] || '',
+    images: allImages,
     description: description?.trim() || ''
   });
 
@@ -158,10 +187,10 @@ app.post('/api/books', async (req, res) => {
   res.json({ success: true, book });
 });
 
-// تعديل بيانات الكتاب بالكامل (الاسم، المؤلف، السعر، الوصف، التصنيفات، والصورة)
+// تعديل بيانات الكتاب بالكامل
 app.put('/api/books/:id', async (req, res) => {
   try {
-    const { title, author, price, categories, category, quantity, description, image } = req.body;
+    const { title, author, price, categories, category, quantity, description, image, images } = req.body;
     const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : (category ? [category] : undefined);
 
     const updateFields = {};
@@ -170,7 +199,15 @@ app.put('/api/books/:id', async (req, res) => {
     if (price !== undefined) updateFields.price = parseFloat(price);
     if (description !== undefined) updateFields.description = description.trim();
     if (quantity !== undefined) updateFields.quantity = parseInt(quantity);
-    if (image) updateFields.image = image;
+    
+    if (Array.isArray(images) && images.length > 0) {
+      updateFields.images = images;
+      updateFields.image = images[0];
+    } else if (image) {
+      updateFields.image = image;
+      updateFields.images = [image];
+    }
+
     if (selectedCats) {
       updateFields.categories = selectedCats;
       updateFields.category = selectedCats[0];
@@ -263,6 +300,7 @@ app.post('/api/orders/cancel', async (req, res) => {
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
   if (order.status === 'تم التجهيز') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه' });
+  if (order.status === 'تم التوصيل') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب بعد إتمام التوصيل' });
 
   for (const item of order.items) {
     let existing = null;
@@ -291,6 +329,7 @@ app.post('/api/orders/cancel', async (req, res) => {
         category: itemCats[0],
         quantity: parseInt(item.qty) || 1,
         image: item.image || 'logo.jpg.jpeg',
+        images: item.images || [item.image || 'logo.jpg.jpeg'],
         description: item.description || ''
       });
     }
@@ -317,7 +356,6 @@ app.post('/api/orders/status', async (req, res) => {
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
   
-  // حماية: إذا تم التوصيل لا يمكن تغيير الحالة إطلاقاً
   if (order.status === 'تم التوصيل') {
     return res.status(400).json({ success: false, message: 'لا يمكن تعديل الطلب بعد إتمام التوصيل' });
   }
@@ -329,5 +367,6 @@ app.post('/api/orders/status', async (req, res) => {
   io.emit('data_updated', fullData);
   res.json({ success: true, order });
 });
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
