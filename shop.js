@@ -153,11 +153,28 @@ function openBookModal(bookId) {
   const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
   const isNew = isNewBook(book.createdAt);
 
+  const imagesList = (book.images && book.images.length > 0) ? book.images : [book.image || 'logo.jpg.jpeg'];
+
+  // توليد معرض الصور المصغرة للتنقل بين الصفحات والغلاف
+  let thumbnailsHTML = '';
+  if (imagesList.length > 1) {
+    thumbnailsHTML = `
+      <div style="display:flex; gap:8px; margin-top:10px; overflow-x:auto; padding-bottom:5px;">
+        ${imagesList.map((imgUrl, idx) => `
+          <img src="${imgUrl}" onclick="switchModalMainImage('${imgUrl}')" style="width:55px; height:55px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${idx === 0 ? '#2563eb' : '#cbd5e1'};" class="book-thumb-img">
+        `).join('')}
+      </div>
+    `;
+  }
+
   body.innerHTML = `
     <button class="close-details-btn" onclick="closeBookModal()">✕</button>
-    <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0; position:relative;">
+    <div style="display:flex; flex-direction:column; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0; position:relative;">
       ${isNew ? '<span class="badge-new" style="top:15px; right:15px;">🌟 وصل حديثاً</span>' : ''}
-      <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:450px; object-fit:contain; border-radius:8px;" onerror="this.src='logo.jpg.jpeg'">
+      <div style="display:flex; justify-content:center; align-items:center; min-height:300px;">
+        <img id="modalMainBookImg" src="${imagesList[0]}" alt="${book.title}" style="max-width:100%; max-height:400px; object-fit:contain; border-radius:8px;" onerror="this.src='logo.jpg.jpeg'">
+      </div>
+      ${thumbnailsHTML}
     </div>
     <div style="display:flex; flex-direction:column; justify-content:space-between; text-align:right;">
       <div>
@@ -189,6 +206,16 @@ function openBookModal(bookId) {
   `;
 
   modal.style.display = 'flex';
+}
+
+// دالة تبديل الصورة المعروضة في النافذة المنبثقة
+function switchModalMainImage(imgUrl) {
+  const mainImg = document.getElementById('modalMainBookImg');
+  if (mainImg) mainImg.src = imgUrl;
+
+  document.querySelectorAll('.book-thumb-img').forEach(img => {
+    img.style.borderColor = (img.src === imgUrl || img.getAttribute('src') === imgUrl) ? '#2563eb' : '#cbd5e1';
+  });
 }
 
 function closeBookModal() {
