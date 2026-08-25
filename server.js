@@ -316,6 +316,11 @@ app.post('/api/orders/status', async (req, res) => {
 
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
+  
+  // حماية: إذا تم التوصيل لا يمكن تغيير الحالة إطلاقاً
+  if (order.status === 'تم التوصيل') {
+    return res.status(400).json({ success: false, message: 'لا يمكن تعديل الطلب بعد إتمام التوصيل' });
+  }
 
   order.status = newStatus;
   await order.save();
@@ -324,6 +329,5 @@ app.post('/api/orders/status', async (req, res) => {
   io.emit('data_updated', fullData);
   res.json({ success: true, order });
 });
-
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
