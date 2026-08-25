@@ -163,12 +163,16 @@ function renderData(data) {
     dayOrders.forEach(ord => {
       const isCancelled = ord.status === 'ملغي';
       const isDone = ord.status === 'تم التجهيز';
+      const isDelivered = ord.status === 'تم التوصيل';
 
       let cardBg = '#FFFFFF';
       let cardBorder = '#E2E8F0';
       if (isCancelled) {
         cardBg = '#FEF2F2';
         cardBorder = '#FECACA';
+      } else if (isDelivered) {
+        cardBg = '#F8FAFC';
+        cardBorder = '#CBD5E1';
       } else if (isDone) {
         cardBg = '#F0FDF4';
         cardBorder = '#86EFAC';
@@ -182,16 +186,29 @@ function renderData(data) {
             <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">تم إلغاء الطلب من العميل</span>
           </div>
         `;
+      } else if (isDelivered) {
+        statusFooterHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #CBD5E1; padding-top:8px;">
+            <span style="font-size:12px; font-weight:800; color:#1E293B;">🎉 الحالة: تم التوصيل للعميل بنجاح</span>
+            <span style="background:#E2E8F0; color:#475569; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">🔒 طلب مكتمل ومقفل</span>
+          </div>
+        `;
       } else {
         statusFooterHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #E2E8F0; padding-top:8px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px dashed #E2E8F0; padding-top:8px;">
             <span style="font-size:12px; font-weight:700; color: ${isDone ? '#16A34A' : '#D97706'};">
               ● الحالة: ${ord.status || 'جديد'}
             </span>
-            <button onclick="toggleOrderStatus('${ord.orderId || ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
-                    style="padding:6px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
-              ${isDone ? '↩️ إعادة تعيين كجديد' : '✅ تم تجهيز الطلب'}
-            </button>
+            <div style="display:flex; gap:6px;">
+              <button onclick="toggleOrderStatus('${ord.orderId || ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
+                ${isDone ? '↩️ كجديد' : '✅ جاهز'}
+              </button>
+              <button onclick="confirmDelivery('${ord.orderId || ord.id}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#2563EB; color:#fff; transition:0.2s;">
+                🚚 وصل الطلب
+              </button>
+            </div>
           </div>
         `;
       }
@@ -222,6 +239,12 @@ function renderData(data) {
     dayBlock += `</div>`;
     ordersContainer.innerHTML += dayBlock;
   }
+}
+
+// دالة تأكيد وصول الطلب وقفله نهائياً
+async function confirmDelivery(orderId) {
+  if (!confirm('هل تأكد استلام العميل للطلب؟ بعد الضغط على موافق لن تتمكن من تغيير حالة الطلب.')) return;
+  await toggleOrderStatus(orderId, 'تم التوصيل');
 }
 
 // دالة فتح نافذة التعديل
