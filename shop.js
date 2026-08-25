@@ -362,6 +362,8 @@ function searchMyOrders() {
     let statusBadge = `<span style="background:#fef3c7; color:#d97706; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">⏳ قيد المراجعة</span>`;
     if (order.status === 'ملغي') {
       statusBadge = `<span style="background:#fee2e2; color:#dc2626; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">❌ ملغي</span>`;
+    } else if (order.status === 'تم التوصيل') {
+      statusBadge = `<span style="background:#e0f2fe; color:#0369a1; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">🎉 تم التوصيل بنجاح</span>`;
     } else if (order.status === 'تم التجهيز') {
       statusBadge = `<span style="background:#dcfce7; color:#16a34a; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">📦 تم التجهيز</span>`;
     }
@@ -369,6 +371,8 @@ function searchMyOrders() {
     let actionBtn = '';
     if (order.status === 'ملغي') {
       actionBtn = `<div style="background:#fee2e2; color:#b91c1c; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم إلغاء هذا الطلب واسترجاع الكتب للمتجر</div>`;
+    } else if (order.status === 'تم التوصيل') {
+      actionBtn = `<div style="background:#e0f2fe; color:#075985; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">نتمنى لك قراءة ممتعة! شكراً لاختيارك مكتبة فكرة 📚</div>`;
     } else if (order.status === 'تم التجهيز') {
       actionBtn = `<div style="background:#dcfce7; color:#15803d; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم تجهيز وتغليف طلبك وهو جاهز للشحن</div>`;
     } else {
