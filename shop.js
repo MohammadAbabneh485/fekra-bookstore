@@ -6,7 +6,16 @@ let cart = [];
 let currentCategory = 'all';
 let isSubmitting = false;
 
-// تحميل البيانات السريع والمباشر
+// دالة فحص ما إذا كان الكتاب مضافاً خلال آخر 3 أيام (72 ساعة)
+function isNewBook(createdAt) {
+  if (!createdAt) return false;
+  const bookDate = new Date(createdAt);
+  if (isNaN(bookDate.getTime())) return false;
+  const diffDays = (new Date() - bookDate) / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= 3;
+}
+
+// تحميل البيانات المباشر
 async function loadData() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -52,16 +61,25 @@ socket.on('data_updated', (data) => {
 function renderCategories() {
   const bar = document.getElementById('categoriesBar');
   if (!bar) return;
-  bar.innerHTML = `<button class="cat-btn ${currentCategory === 'all' ? 'active' : ''}" onclick="filterCategory('all', event)">جميع الكتب</button>`;
+  
+  let html = `
+    <button class="cat-btn ${currentCategory === 'all' ? 'active' : ''}" onclick="filterCategory('all', event)">جميع الكتب</button>
+    <button class="cat-btn ${currentCategory === 'new_arrivals' ? 'active' : ''}" onclick="filterCategory('new_arrivals', event)" style="color:#dc2626; font-weight:800;">🌟 وصل حديثاً</button>
+  `;
+  
   allCategories.forEach(cat => {
-    bar.innerHTML += `<button class="cat-btn ${currentCategory === cat ? 'active' : ''}" onclick="filterCategory('${cat}', event)">${cat}</button>`;
+    html += `<button class="cat-btn ${currentCategory === cat ? 'active' : ''}" onclick="filterCategory('${cat}', event)">${cat}</button>`;
   });
+  
+  bar.innerHTML = html;
 }
 
 function filterCategory(cat, e) {
   currentCategory = cat;
   document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
-  if (e) e.target.classList.add('active');
+  if (e && e.target) {
+    e.target.classList.add('active');
+  }
   renderBooks();
 }
 
@@ -77,13 +95,17 @@ function renderBooks() {
   const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
   let filtered = allBooks.filter(b => b.quantity > 0);
 
-  if (currentCategory !== 'all') {
+  // تصفية حسب القسم أو حسب "وصل حديثاً"
+  if (currentCategory === 'new_arrivals') {
+    filtered = filtered.filter(b => isNewBook(b.createdAt));
+  } else if (currentCategory !== 'all') {
     filtered = filtered.filter(b => (b.categories && b.categories.includes(currentCategory)) || b.category === currentCategory);
   }
 
+  // تصفية حسب البحث
   if (query) {
     filtered = filtered.filter(b => 
-      (b.title && b.title.toLowerCase().includes(query)) ||
+      (b.title && b.title.toLowerCase().includes(query)) || 
       (b.author && b.author.toLowerCase().includes(query))
     );
   }
@@ -97,10 +119,13 @@ function renderBooks() {
   if (empty) empty.style.display = 'none';
   grid.innerHTML = filtered.map(b => {
     const bookId = b.id || b._id;
+    const isNew = isNewBook(b.createdAt);
+
     return `
-      <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03);">
+      <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03); position:relative;">
         <div style="cursor:pointer;" onclick="openBookModal('${bookId}')">
           <div style="overflow:hidden; border-radius:10px; margin-bottom:12px; position:relative; background:#f8fafc;">
+            ${isNew ? '<span class="badge-new">🌟 وصل حديثاً</span>' : ''}
             <img src="${b.image || 'logo.jpg.jpeg'}" loading="lazy" alt="${b.title}" style="width:100%; height:220px; object-fit:cover; display:block;" onerror="this.src='logo.jpg.jpeg'">
             <span style="position:absolute; bottom:8px; right:8px; background:rgba(15, 23, 42, 0.8); color:#fff; font-size:11px; padding:3px 8px; border-radius:6px; font-weight:bold;">🔎 تفاصيل</span>
           </div>
@@ -126,15 +151,17 @@ function openBookModal(bookId) {
   const modal = document.getElementById('bookDetailsModal');
   const body = document.getElementById('bookModalBody');
   const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
+  const isNew = isNewBook(book.createdAt);
 
   body.innerHTML = `
     <button class="close-details-btn" onclick="closeBookModal()">✕</button>
-    <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0;">
+    <div style="display:flex; justify-content:center; align-items:center; background:#f8fafc; border-radius:12px; padding:10px; border:1px solid #e2e8f0; position:relative;">
+      ${isNew ? '<span class="badge-new" style="top:15px; right:15px;">🌟 وصل حديثاً</span>' : ''}
       <img src="${book.image || 'logo.jpg.jpeg'}" alt="${book.title}" style="max-width:100%; max-height:450px; object-fit:contain; border-radius:8px;" onerror="this.src='logo.jpg.jpeg'">
     </div>
     <div style="display:flex; flex-direction:column; justify-content:space-between; text-align:right;">
       <div>
-        <div style="margin-bottom:8px;">
+        <div style="margin-bottom:8px; display:flex; gap:6px; align-items:center;">
           <span style="background:#f1f5f9; color:#475569; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700;">📂 ${catsDisplay}</span>
         </div>
         <h2 style="margin:0 0 8px 0; font-size:20px; color:#0f172a; font-weight:900;">${book.title}</h2>
@@ -173,7 +200,6 @@ function handleModalOutsideClick(e) {
   if (e.target.id === 'bookDetailsModal') closeBookModal();
 }
 
-// إضافة الكتاب مع حفظ كامل بياناته (المؤلف، الأقسام، الصورة، والوصف)
 function addToCart(bookId) {
   const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
