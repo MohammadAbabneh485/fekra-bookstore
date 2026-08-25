@@ -7,6 +7,24 @@
   <link rel="stylesheet" href="style.css">
   <script src="/socket.io/socket.io.js"></script>
   <style>
+    /* شارة وصل حديثاً */
+    .badge-new {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 20px;
+      box-shadow: 0 3px 6px rgba(220, 38, 38, 0.35);
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
     /* تنسيقات واجهة عرض التفاصيل الكاملة للكتاب */
     .book-details-overlay {
       display: none;
@@ -103,6 +121,7 @@
     </div>
     <div class="categories-bar" id="categoriesBar">
       <button class="cat-btn active" onclick="filterCategory('all', event)">جميع الكتب</button>
+      <button class="cat-btn" onclick="filterCategory('new_arrivals', event)" style="color:#dc2626; font-weight:800;">🌟 وصل حديثاً</button>
     </div>
   </section>
 
@@ -169,9 +188,7 @@
 
   <!-- واجهة عرض تفاصيل الغلاف والوصف الكامل -->
   <div class="book-details-overlay" id="bookDetailsModal" onclick="handleModalOutsideClick(event)">
-    <div class="book-details-card" id="bookModalBody">
-      <!-- يتم حقن التفاصيل والصورة الكبيرة هنا -->
-    </div>
+    <div class="book-details-card" id="bookModalBody"></div>
   </div>
 
   <footer class="footer">
