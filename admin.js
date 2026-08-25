@@ -1,18 +1,18 @@
 const socket = io();
 let currentImageBase64 = '';
+let globalData = { books: [], categories: [], orders: [] };
 
 const fileInput = document.getElementById('bookImageFile');
 if (fileInput) {
   fileInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-      // ضغط وتصغير أبعاد الصورة لتقليل حجمها وسرعة نقلها
       const reader = new FileReader();
       reader.onload = function(evt) {
         const img = new Image();
         img.onload = function() {
           const canvas = document.createElement('canvas');
-          const maxDim = 600; // تصغير الأبعاد لتناسب العرض السريع
+          const maxDim = 600;
           let width = img.width;
           let height = img.height;
 
@@ -29,7 +29,6 @@ if (fileInput) {
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // تصدير بجودة WebP/JPEG خفيفة جداً (< 50KB)
           currentImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
         };
         img.src = evt.target.result;
@@ -40,6 +39,7 @@ if (fileInput) {
 }
 
 socket.on('data_updated', (data) => {
+  globalData = data;
   renderData(data);
 });
 
@@ -51,14 +51,72 @@ async function initAdmin() {
   try {
     const res = await fetch('/api/data');
     const data = await res.json();
+    globalData = data;
     renderData(data);
   } catch (err) {
     console.error(err);
   }
 }
 
+// دالة البحث المباشر في لوحة الأدمن
+function filterAdminBooks() {
+  const query = (document.getElementById('adminSearchInput')?.value || '').toLowerCase().trim();
+  if (!query) {
+    renderBooksGrid(globalData.books || []);
+    return;
+  }
+  const filtered = (globalData.books || []).filter(book => 
+    (book.title && book.title.toLowerCase().includes(query)) || 
+    (book.author && book.author.toLowerCase().includes(query))
+  );
+  renderBooksGrid(filtered);
+}
+
+function renderBooksGrid(books) {
+  const booksContainer = document.getElementById('adminBooksList');
+  if (!booksContainer) return;
+  booksContainer.innerHTML = '';
+
+  if (!books || books.length === 0) {
+    booksContainer.innerHTML = '<p style="color:#888; font-size:13px; grid-column: 1/-1; text-align:center; padding:20px;">لا توجد نتائج مطابقة للبحث.</p>';
+    return;
+  }
+
+  books.forEach(book => {
+    const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
+    booksContainer.innerHTML += `
+      <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <img src="${book.image || 'logo.jpg.jpeg'}" loading="lazy" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src='logo.jpg.jpeg'">
+          <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
+          <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
+          <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
+          <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">📂 ${catsDisplay}</span>
+        </div>
+
+        <div style="margin-top:12px; border-top:1px solid #F1F5F9; padding-top:10px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
+            <button onclick="changeBookQty('${book.id}', -1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">-</button>
+            <span style="font-size:13px; font-weight:800; color:#0F172A; min-width:60px;">الكمية: ${book.quantity}</span>
+            <button onclick="changeBookQty('${book.id}', 1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">+</button>
+          </div>
+
+          <div style="display:flex; gap:6px;">
+            <button onclick="openEditModal('${book.id}')" style="flex:1; background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">
+              ✏️ تعديل
+            </button>
+            <button onclick="deleteBook('${book.id}', '${book.title}')" style="flex:1; background:#FEE2E2; color:#DC2626; border:none; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">
+              🗑️ حذف
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+}
+
 function renderData(data) {
-  // 1. مربعات اختيار الأقسام
+  // 1. خيارات الأقسام لنموذج الإضافة
   const catListContainer = document.getElementById('categoriesCheckboxList');
   if (catListContainer) {
     catListContainer.innerHTML = '';
@@ -72,41 +130,8 @@ function renderData(data) {
     });
   }
 
-  // 2. عرض الكتب
-  const booksContainer = document.getElementById('adminBooksList');
-  if (booksContainer) {
-    booksContainer.innerHTML = '';
-    if (!data.books || data.books.length === 0) {
-      booksContainer.innerHTML = '<p style="color:#888; font-size:13px; grid-column: 1/-1; text-align:center; padding:20px;">لا توجد كتب متوفرة حالياً في المتجر.</p>';
-    } else {
-      data.books.forEach(book => {
-        const catsDisplay = Array.isArray(book.categories) ? book.categories.join(' ، ') : (book.category || 'عام');
-        booksContainer.innerHTML += `
-          <div style="border:1px solid #E2E8F0; border-radius:12px; padding:12px; text-align:center; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
-            <div>
-              <img src="${book.image || 'logo.jpg.jpeg'}" loading="lazy" style="width:100%; height:140px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src='logo.jpg.jpeg'">
-              <div style="font-weight:800; font-size:14px; color:#0F172A; line-height:1.3;">${book.title}</div>
-              <div style="font-size:12px; color:#64748B; margin:3px 0;">${book.author || 'مؤلف غير محدد'}</div>
-              <div style="font-size:13px; color:#B45309; font-weight:800; margin-bottom:6px;">${book.price} د.أ</div>
-              <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:12px; display:inline-block;">📂 ${catsDisplay}</span>
-            </div>
-
-            <div style="margin-top:12px; border-top:1px solid #F1F5F9; padding-top:10px;">
-              <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
-                <button onclick="changeBookQty('${book.id}', -1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">-</button>
-                <span style="font-size:13px; font-weight:800; color:#0F172A; min-width:60px;">الكمية: ${book.quantity}</span>
-                <button onclick="changeBookQty('${book.id}', 1)" style="width:28px; height:28px; border-radius:6px; border:1px solid #CBD5E1; background:#F8FAFC; cursor:pointer; font-weight:bold; font-size:16px;">+</button>
-              </div>
-
-              <button onclick="deleteBook('${book.id}', '${book.title}')" style="width:100%; background:#FEE2E2; color:#DC2626; border:none; padding:6px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; transition:0.2s;">
-                🗑️ حذف الكتاب نهائياً
-              </button>
-            </div>
-          </div>
-        `;
-      });
-    }
-  }
+  // 2. عرض شبكة الكتب المتاحة مع البحث
+  filterAdminBooks();
 
   // 3. عرض الطلبات
   const ordersContainer = document.getElementById('ordersList');
@@ -196,6 +221,84 @@ function renderData(data) {
 
     dayBlock += `</div>`;
     ordersContainer.innerHTML += dayBlock;
+  }
+}
+
+// دالة فتح نافذة التعديل
+function openEditModal(bookId) {
+  const book = (globalData.books || []).find(b => b.id === bookId || b._id === bookId);
+  if (!book) return;
+
+  document.getElementById('editBookId').value = book.id || book._id;
+  document.getElementById('editTitle').value = book.title || '';
+  document.getElementById('editAuthor').value = book.author || '';
+  document.getElementById('editPrice').value = book.price || 0;
+  document.getElementById('editQuantity').value = book.quantity || 1;
+  document.getElementById('editDesc').value = book.description || '';
+
+  const editCatContainer = document.getElementById('editCategoriesCheckboxList');
+  if (editCatContainer) {
+    editCatContainer.innerHTML = '';
+    const bookCats = book.categories || [book.category || 'عام'];
+    (globalData.categories || []).forEach(cat => {
+      const isChecked = bookCats.includes(cat) ? 'checked' : '';
+      editCatContainer.innerHTML += `
+        <label style="display:flex; align-items:center; gap:4px; font-size:12px; color:#334155; cursor:pointer;">
+          <input type="checkbox" value="${cat}" ${isChecked}>
+          <span>${cat}</span>
+        </label>
+      `;
+    });
+  }
+
+  const modal = document.getElementById('editModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeEditModal() {
+  const modal = document.getElementById('editModal');
+  if (modal) modal.style.display = 'none';
+}
+
+// دالة حفظ التعديل وإرسالها للسيرفر
+async function saveEditBook() {
+  const bookId = document.getElementById('editBookId').value;
+  const title = document.getElementById('editTitle').value.trim();
+  const author = document.getElementById('editAuthor').value.trim();
+  const price = parseFloat(document.getElementById('editPrice').value);
+  const quantity = parseInt(document.getElementById('editQuantity').value);
+  const description = document.getElementById('editDesc').value.trim();
+
+  const checkedCats = Array.from(
+    document.querySelectorAll('#editCategoriesCheckboxList input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
+
+  if (!title || isNaN(price)) {
+    return alert('يرجى التأكد من ملء عنوان الكتاب والسعر بشكل صحيح');
+  }
+
+  try {
+    const res = await fetch(`/api/books/${bookId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        author,
+        price,
+        quantity,
+        description,
+        categories: checkedCats.length > 0 ? checkedCats : undefined
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      closeEditModal();
+    } else {
+      alert('حدث خطأ أثناء حفظ التعديل: ' + (result.message || result.error));
+    }
+  } catch (err) {
+    alert('فشل الاتصال بالسيرفر أثناء حفظ التعديل');
   }
 }
 
