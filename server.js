@@ -16,7 +16,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(__dirname));
 
-// مسار خفيف جداً لـ UptimeRobot لإبقاء السيرفر نشطاً دون استهلاك باقة الإنترنت (حجمه 4 بايت فقط)
+// مسار خفيف لـ UptimeRobot لإبقاء السيرفر نشطاً دون استهلاك باقة الإنترنت
 app.get('/ping', (req, res) => res.status(200).send('pong'));
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -25,7 +25,8 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB Atlas'))
   .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-const Book = mongoose.model('Book', new mongoose.Schema({
+// إضافة timestamps لتسجيل تاريخ الإضافة createdAt لاستخدامه في "وصل حديثاً"
+const bookSchema = new mongoose.Schema({
   title: String,
   author: String,
   price: Number,
@@ -34,7 +35,9 @@ const Book = mongoose.model('Book', new mongoose.Schema({
   quantity: Number,
   image: String,
   description: String
-}));
+}, { timestamps: true });
+
+const Book = mongoose.model('Book', bookSchema);
 
 const Order = mongoose.model('Order', new mongoose.Schema({
   orderId: String,
@@ -63,8 +66,7 @@ async function getFullData(forceRefresh = false) {
     return cachedData;
   }
 
-  // جلب الكتب التي كميتها أكبر من صفر فقط للمتجر
-  const books = await Book.find({ quantity: { $gt: 0 } }, '-image').lean();
+  const books = await Book.find({ quantity: { $gt: 0 } }, '-image').sort({ createdAt: -1 }).lean();
   const orders = await Order.find().sort({ _id: -1 }).lean();
   let categories = await Category.find().lean();
   
@@ -78,7 +80,8 @@ async function getFullData(forceRefresh = false) {
     books: books.map(b => ({
       ...b,
       id: b._id.toString(),
-      image: `/api/book-image/${b._id.toString()}`
+      image: `/api/book-image/${b._id.toString()}`,
+      createdAt: b.createdAt || null
     })),
     orders: orders.map(o => ({ ...o, id: o.orderId || o._id.toString() })),
     categories: categories.map(c => c.name)
@@ -115,7 +118,7 @@ app.get('/api/book-image/:id', async (req, res) => {
   }
 });
 
-// مسار قراءة البيانات السريع جداً
+// مسار قراءة البيانات السريع
 app.get('/api/data', async (req, res) => {
   try {
     res.json(await getFullData());
@@ -155,6 +158,36 @@ app.post('/api/books', async (req, res) => {
   res.json({ success: true, book });
 });
 
+// تعديل بيانات الكتاب بالكامل (الاسم، المؤلف، السعر، الوصف، التصنيفات، والصورة)
+app.put('/api/books/:id', async (req, res) => {
+  try {
+    const { title, author, price, categories, category, quantity, description, image } = req.body;
+    const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : (category ? [category] : undefined);
+
+    const updateFields = {};
+    if (title !== undefined) updateFields.title = title.trim();
+    if (author !== undefined) updateFields.author = author.trim();
+    if (price !== undefined) updateFields.price = parseFloat(price);
+    if (description !== undefined) updateFields.description = description.trim();
+    if (quantity !== undefined) updateFields.quantity = parseInt(quantity);
+    if (image) updateFields.image = image;
+    if (selectedCats) {
+      updateFields.categories = selectedCats;
+      updateFields.category = selectedCats[0];
+    }
+
+    const updatedBook = await Book.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+    if (!updatedBook) {
+      return res.status(404).json({ success: false, message: 'الكتاب غير موجود' });
+    }
+
+    io.emit('data_updated', await getFullData(true));
+    res.json({ success: true, book: updatedBook });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // تعديل كمية كتاب
 app.post('/api/books/quantity', async (req, res) => {
   const { bookId, change } = req.body;
@@ -168,7 +201,7 @@ app.post('/api/books/quantity', async (req, res) => {
   res.json({ success: true });
 });
 
-// حذف كتاب نهائياً بطلب من الأدمن فقط
+// حذف كتاب نهائياً
 app.post('/api/books/delete', async (req, res) => {
   const { bookId } = req.body;
   await Book.findByIdAndDelete(bookId);
@@ -176,7 +209,7 @@ app.post('/api/books/delete', async (req, res) => {
   res.json({ success: true });
 });
 
-// إنشاء طلب جديد (تصفير الكمية دون حذف السجل لحفظ القسم والتفاصيل)
+// إنشاء طلب جديد
 app.post('/api/order', async (req, res) => {
   const { customerName, phone, address, city, items } = req.body;
 
@@ -219,7 +252,7 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// إلغاء الطلب واسترجاع الكتاب مع كامل بياناته الأصلية
+// إلغاء الطلب واسترجاع الكتاب
 app.post('/api/orders/cancel', async (req, res) => {
   const targetId = req.body.orderId || req.body.id;
   let order = await Order.findOne({ orderId: targetId });
@@ -237,7 +270,6 @@ app.post('/api/orders/cancel', async (req, res) => {
       existing = await Book.findById(item.id);
     }
     
-    // إذا كان الكتاب موجوداً بالاسم مسبقاً
     if (!existing && item.title) {
       existing = await Book.findOne({ title: item.title });
     }
