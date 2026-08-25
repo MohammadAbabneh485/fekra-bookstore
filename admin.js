@@ -1,40 +1,56 @@
 const socket = io();
-let currentImageBase64 = '';
+let currentImagesBase64 = []; // مصفوفة لتخزين الصور المتعددة
 let globalData = { books: [], categories: [], orders: [] };
 
+// معالجة رفع الصور المتعددة وضغطها
 const fileInput = document.getElementById('bookImageFile');
 if (fileInput) {
-  fileInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const img = new Image();
-        img.onload = function() {
-          const canvas = document.createElement('canvas');
-          const maxDim = 600;
-          let width = img.width;
-          let height = img.height;
+  fileInput.addEventListener('change', async function(e) {
+    const files = Array.from(e.target.files);
+    currentImagesBase64 = [];
+    const statusElem = document.getElementById('imagesUploadStatus');
+    
+    if (statusElem) statusElem.innerText = `⏳ جارٍ معالجة وتجهيز ${files.length} صورة...`;
 
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          currentImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
-        };
-        img.src = evt.target.result;
-      };
-      reader.readAsDataURL(file);
+    for (const file of files) {
+      const base64 = await processAndCompressImage(file);
+      currentImagesBase64.push(base64);
     }
+
+    if (statusElem) statusElem.innerText = `✅ تم تجهيز ${currentImagesBase64.length} صورة بنجاح`;
+  });
+}
+
+// دالة ضغط الصور
+function processAndCompressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const maxDim = 600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = evt.target.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -377,8 +393,9 @@ async function saveBook() {
   const checkedBoxes = document.querySelectorAll('input[name="bookCategories"]:checked');
   const selectedCategories = Array.from(checkedBoxes).map(cb => cb.value);
 
-  if (!title || !price || !currentImageBase64) {
-    return alert('يرجى إدخال عنوان الكتاب والسعر واختيار صورة الغلاف');
+  // التأكد من وجود صورة واحدة على الأقل
+  if (!title || !price || currentImagesBase64.length === 0) {
+    return alert('يرجى إدخال عنوان الكتاب والسعر واختيار صورة واحدة على الأقل');
   }
 
   if (selectedCategories.length === 0) {
@@ -401,17 +418,23 @@ async function saveBook() {
         price,
         quantity,
         description,
-        image: currentImageBase64
+        image: currentImagesBase64[0],     // الصورة الرئيسية للغلاف
+        images: currentImagesBase64        // باقي الصور لصفحات الكتاب
       })
     });
 
+    // تفريغ الحقول بعد النشر
     document.getElementById('bookTitle').value = '';
-    if (document.getElementById('bookAuthor')) document.getElementById('bookAuthor').value = '';
+    document.getElementById('bookAuthor').value = '';
     document.getElementById('bookPrice').value = '';
-    if (document.getElementById('bookDesc')) document.getElementById('bookDesc').value = '';
+    document.getElementById('bookDesc').value = '';
     document.getElementById('bookImageFile').value = '';
-    currentImageBase64 = '';
-    alert('تم نشر الكتاب بنجاح وبسرعة فائقة!');
+    
+    const statusElem = document.getElementById('imagesUploadStatus');
+    if (statusElem) statusElem.innerText = '';
+    
+    currentImagesBase64 = [];
+    alert('تم نشر الكتاب مع كامل صوره بنجاح!');
   } finally {
     btn.disabled = false;
     btn.innerText = 'نشر الكتاب في المتجر';
