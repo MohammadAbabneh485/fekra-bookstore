@@ -402,12 +402,15 @@ async function saveBook() {
     return alert('يرجى اختيار قسم واحد على الأقل للكتاب');
   }
 
-  const btn = event.target;
-  btn.disabled = true;
-  btn.innerText = 'جارٍ النشر...';
+  // جلب الزر مباشرة عبر الـ selector لتجنب التعليق
+  const btn = document.querySelector('.add-btn[onclick="saveBook()"]') || document.querySelector('button[onclick="saveBook()"]');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = 'جارٍ النشر...';
+  }
 
   try {
-    await fetch('/api/books', {
+    const res = await fetch('/api/books', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -423,21 +426,31 @@ async function saveBook() {
       })
     });
 
-    // تفريغ الحقول بعد النشر
-    document.getElementById('bookTitle').value = '';
-    document.getElementById('bookAuthor').value = '';
-    document.getElementById('bookPrice').value = '';
-    document.getElementById('bookDesc').value = '';
-    document.getElementById('bookImageFile').value = '';
-    
-    const statusElem = document.getElementById('imagesUploadStatus');
-    if (statusElem) statusElem.innerText = '';
-    
-    currentImagesBase64 = [];
-    alert('تم نشر الكتاب مع كامل صوره بنجاح!');
+    const result = await res.json();
+
+    if (result.success) {
+      // تفريغ الحقول بعد النشر بنجاح
+      document.getElementById('bookTitle').value = '';
+      document.getElementById('bookAuthor').value = '';
+      document.getElementById('bookPrice').value = '';
+      if (document.getElementById('bookDesc')) document.getElementById('bookDesc').value = '';
+      document.getElementById('bookImageFile').value = '';
+      
+      const statusElem = document.getElementById('imagesUploadStatus');
+      if (statusElem) statusElem.innerText = '';
+      
+      currentImagesBase64 = [];
+      alert('تم نشر الكتاب مع كامل صوره بنجاح!');
+    } else {
+      alert('حدث خطأ أثناء حفظ الكتاب: ' + (result.message || 'خطأ غير معروف'));
+    }
+  } catch (err) {
+    alert('فشل الاتصال بالسيرفر، تأكد من استيقاظ السيرفر والإنترنت');
   } finally {
-    btn.disabled = false;
-    btn.innerText = 'نشر الكتاب في المتجر';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = 'نشر الكتاب في المتجر';
+    }
   }
 }
 
