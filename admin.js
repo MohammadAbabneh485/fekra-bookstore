@@ -1,6 +1,7 @@
 const socket = io();
-let currentImagesBase64 = []; // مصفوفة لتخزين الصور المتعددة
+let currentImagesBase64 = [];
 let globalData = { books: [], categories: [], orders: [] };
+let currentOrdersFilter = 'all';
 
 // معالجة رفع الصور المتعددة وضغطها
 const fileInput = document.getElementById('bookImageFile');
@@ -21,7 +22,6 @@ if (fileInput) {
   });
 }
 
-// دالة ضغط الصور
 function processAndCompressImage(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -90,6 +90,8 @@ function filterAdminBooks() {
 
 function renderBooksGrid(books) {
   const booksContainer = document.getElementById('adminBooksList');
+  const countBadge = document.getElementById('booksCountBadge');
+  if (countBadge) countBadge.innerText = `${books.length} كتاب`;
   if (!booksContainer) return;
   booksContainer.innerHTML = '';
 
@@ -131,36 +133,30 @@ function renderBooksGrid(books) {
   });
 }
 
-function renderData(data) {
-  // 1. خيارات الأقسام لنموذج الإضافة
-  const catListContainer = document.getElementById('categoriesCheckboxList');
-  if (catListContainer) {
-    catListContainer.innerHTML = '';
-    (data.categories || []).forEach((cat, index) => {
-      catListContainer.innerHTML += `
-        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: #334155;">
-          <input type="checkbox" name="bookCategories" value="${cat}" ${index === 0 ? 'checked' : ''}>
-          <span>${cat}</span>
-        </label>
-      `;
-    });
-  }
-
-  // 2. عرض شبكة الكتب المتاحة مع البحث
-  filterAdminBooks();
-
-  // 3. عرض الطلبات
+// عرض وإدارة وتصفية الطلبات
+function renderOrdersList() {
   const ordersContainer = document.getElementById('ordersList');
+  const badge = document.getElementById('ordersHeaderBadge');
+  
+  const allOrders = globalData.orders || [];
+  const pendingCount = allOrders.filter(o => o.status !== 'تم التوصيل' && o.status !== 'ملغي').length;
+  if (badge) badge.innerText = pendingCount;
+
   if (!ordersContainer) return;
   ordersContainer.innerHTML = '';
 
-  if (!data.orders || data.orders.length === 0) {
-    ordersContainer.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">لا توجد أي طلبات واردة حتى الآن.</p>';
+  let filteredOrders = allOrders;
+  if (currentOrdersFilter !== 'all') {
+    filteredOrders = allOrders.filter(o => (o.status || 'جديد') === currentOrdersFilter);
+  }
+
+  if (filteredOrders.length === 0) {
+    ordersContainer.innerHTML = '<p style="color:#888; text-align:center; padding:40px 20px; font-size:14px;">لا توجد أي طلبات مطابقة لهذا الفلتر.</p>';
     return;
   }
 
   const groupedOrders = {};
-  data.orders.forEach(order => {
+  filteredOrders.forEach(order => {
     const day = order.date || order.createdAt?.split(' - ')[0] || 'الطلبات الحالية';
     if (!groupedOrders[day]) groupedOrders[day] = [];
     groupedOrders[day].push(order);
@@ -169,8 +165,8 @@ function renderData(data) {
   for (const day in groupedOrders) {
     const dayOrders = groupedOrders[day];
     let dayBlock = `
-      <div style="margin-bottom: 22px;">
-        <div style="background:#0F172A; color:#D4AF37; padding:9px 14px; border-radius:8px; font-weight:700; font-size:13px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="margin-bottom: 20px;">
+        <div style="background:#0F172A; color:#D4AF37; padding:8px 14px; border-radius:8px; font-weight:700; font-size:13px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center;">
           <span>📅 طلبات: ${day}</span>
           <span style="background:rgba(212,175,55,0.2); padding:2px 8px; border-radius:10px; font-size:11px;">${dayOrders.length} طلبات</span>
         </div>
@@ -199,7 +195,7 @@ function renderData(data) {
         statusFooterHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #FCA5A5; padding-top:8px;">
             <span style="font-size:12px; font-weight:800; color:#DC2626;">❌ الحالة: ملغي</span>
-            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">تم إلغاء الطلب من العميل</span>
+            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">تم إلغاء الطلب</span>
           </div>
         `;
       } else if (isDelivered) {
@@ -217,11 +213,11 @@ function renderData(data) {
             </span>
             <div style="display:flex; gap:6px;">
               <button onclick="toggleOrderStatus('${ord.orderId || ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
-                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
+                      style="padding:6px 12px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
                 ${isDone ? '↩️ كجديد' : '✅ جاهز'}
               </button>
               <button onclick="confirmDelivery('${ord.orderId || ord.id}')" 
-                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#2563EB; color:#fff; transition:0.2s;">
+                      style="padding:6px 12px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#2563EB; color:#fff; transition:0.2s;">
                 🚚 وصل الطلب
               </button>
             </div>
@@ -230,7 +226,7 @@ function renderData(data) {
       }
 
       dayBlock += `
-        <div style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius:10px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+        <div style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius:10px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
               <span style="font-weight:800; font-size:15px; color:#0F172A;">👤 ${ord.customerName}</span>
@@ -255,6 +251,48 @@ function renderData(data) {
     dayBlock += `</div>`;
     ordersContainer.innerHTML += dayBlock;
   }
+}
+
+function openOrdersModal() {
+  const modal = document.getElementById('ordersModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    renderOrdersList();
+  }
+}
+
+function closeOrdersModal() {
+  const modal = document.getElementById('ordersModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function filterOrdersByStatus(status, e) {
+  currentOrdersFilter = status;
+  document.querySelectorAll('.order-tab-btn').forEach(btn => btn.classList.remove('active'));
+  if (e && e.target) e.target.classList.add('active');
+  renderOrdersList();
+}
+
+function renderData(data) {
+  // 1. خيارات الأقسام لنموذج الإضافة
+  const catListContainer = document.getElementById('categoriesCheckboxList');
+  if (catListContainer) {
+    catListContainer.innerHTML = '';
+    (data.categories || []).forEach((cat, index) => {
+      catListContainer.innerHTML += `
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: #334155;">
+          <input type="checkbox" name="bookCategories" value="${cat}" ${index === 0 ? 'checked' : ''}>
+          <span>${cat}</span>
+        </label>
+      `;
+    });
+  }
+
+  // 2. عرض شبكة الكتب المتاحة مع البحث
+  filterAdminBooks();
+
+  // 3. تحديث قائمة وشارة الطلبات
+  renderOrdersList();
 }
 
 // دالة تأكيد وصول الطلب وقفله نهائياً
@@ -393,7 +431,6 @@ async function saveBook() {
   const checkedBoxes = document.querySelectorAll('input[name="bookCategories"]:checked');
   const selectedCategories = Array.from(checkedBoxes).map(cb => cb.value);
 
-  // التأكد من وجود صورة واحدة على الأقل
   if (!title || !price || currentImagesBase64.length === 0) {
     return alert('يرجى إدخال عنوان الكتاب والسعر واختيار صورة واحدة على الأقل');
   }
@@ -402,7 +439,6 @@ async function saveBook() {
     return alert('يرجى اختيار قسم واحد على الأقل للكتاب');
   }
 
-  // جلب الزر مباشرة عبر الـ selector لتجنب التعليق
   const btn = document.querySelector('.add-btn[onclick="saveBook()"]') || document.querySelector('button[onclick="saveBook()"]');
   if (btn) {
     btn.disabled = true;
@@ -421,15 +457,13 @@ async function saveBook() {
         price,
         quantity,
         description,
-        image: currentImagesBase64[0],     // الصورة الرئيسية للغلاف
-        images: currentImagesBase64        // باقي الصور لصفحات الكتاب
+        image: currentImagesBase64[0],
+        images: currentImagesBase64
       })
     });
 
     const result = await res.json();
-
     if (result.success) {
-      // تفريغ الحقول بعد النشر بنجاح
       document.getElementById('bookTitle').value = '';
       document.getElementById('bookAuthor').value = '';
       document.getElementById('bookPrice').value = '';
@@ -440,12 +474,12 @@ async function saveBook() {
       if (statusElem) statusElem.innerText = '';
       
       currentImagesBase64 = [];
-      alert('تم نشر الكتاب مع كامل صوره بنجاح!');
+      alert('تم نشر الكتاب بنجاح!');
     } else {
       alert('حدث خطأ أثناء حفظ الكتاب: ' + (result.message || 'خطأ غير معروف'));
     }
   } catch (err) {
-    alert('فشل الاتصال بالسيرفر، تأكد من استيقاظ السيرفر والإنترنت');
+    alert('فشل الاتصال بالسيرفر');
   } finally {
     if (btn) {
       btn.disabled = false;
