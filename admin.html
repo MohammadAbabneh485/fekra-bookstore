@@ -7,12 +7,11 @@
   <link rel="stylesheet" href="style.css">
   <script src="/socket.io/socket.io.js"></script>
   <style>
-    /* تنسيق نافذة التعديل المنبثقة */
     .modal-overlay {
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(4px);
       z-index: 1000;
       align-items: center;
@@ -21,39 +20,74 @@
     }
     .modal-box {
       background: #fff;
-      border-radius: 12px;
+      border-radius: 14px;
       width: 100%;
-      max-width: 500px;
-      padding: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      max-width: 520px;
+      padding: 22px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
       max-height: 90vh;
       overflow-y: auto;
     }
+    .orders-modal-box {
+      background: #f8fafc;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 900px;
+      padding: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .order-tab-btn {
+      padding: 8px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #fff;
+      color: #334155;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .order-tab-btn.active {
+      background: #0f172a;
+      color: #fff;
+      border-color: #0f172a;
+    }
   </style>
 </head>
-<body style="background:#f1f5f9; font-family: system-ui, -apple-system, sans-serif;">
+<body style="background:#f1f5f9; font-family: system-ui, -apple-system, sans-serif; margin:0;">
 
+  <!-- الهيدر مع زر مخصص للطلبات -->
   <header class="header">
-    <div class="header-inner" style="display:flex; justify-content:space-between; align-items:center; max-width:1200px; margin:0 auto; padding:10px 20px;">
+    <div class="header-inner" style="display:flex; justify-content:space-between; align-items:center; max-width:1250px; margin:0 auto; padding:12px 20px;">
       <a href="/shop" class="logo-container" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
         <img src="logo.jpg.jpeg" alt="مكتبة فكرة" class="logo-img" style="width:45px; height:45px; border-radius:50%; object-fit:cover;" onerror="this.src='logo.jpg'">
         <div class="logo-text">
           <h1 style="font-size:18px; margin:0; color:#0f172a;">لوحة تحكم صاحب المتجر</h1>
-          <p style="font-size:12px; margin:0; color:#64748b;">إدارة الكتب والأقسام والطلبات لحظياً</p>
+          <p style="font-size:12px; margin:0; color:#64748b;">إدارة الكتب والأقسام والطلبات</p>
         </div>
       </a>
-      <a href="/shop" target="_blank" style="background:#1e293b; color:#fff; padding:8px 16px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:700;">🌐 فتح المتجر</a>
+      
+      <div style="display:flex; gap:10px; align-items:center;">
+        <!-- زر فتح نافذة إدارة الطلبات -->
+        <button onclick="openOrdersModal()" style="background:#2563eb; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+          📦 إدارة الطلبات <span id="ordersHeaderBadge" style="background:#ef4444; color:#fff; font-size:11px; padding:2px 7px; border-radius:10px;">0</span>
+        </button>
+        <a href="/shop" target="_blank" style="background:#1e293b; color:#fff; padding:9px 16px; border-radius:8px; text-decoration:none; font-size:13px; font-weight:700;">🌐 فتح المتجر</a>
+      </div>
     </div>
   </header>
 
-  <div class="container" style="max-width:1200px; margin:20px auto; padding:0 15px; display:grid; grid-template-columns: 360px 1fr; gap:25px;">
+  <div class="container" style="max-width:1250px; margin:20px auto; padding:0 15px; display:grid; grid-template-columns: 360px 1fr; gap:25px;">
     
-    <!-- عمود الإضافة -->
+    <!-- العمود الأيمن: إضافة الأقسام والكتب -->
     <div>
       <!-- إضافة قسم جديد -->
-      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+      <div style="background:#fff; padding:18px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
         <h4 style="margin-top:0; color:#0f172a; font-size:15px;">📁 إضافة قسم جديد</h4>
-        <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="display:flex; gap:8px; margin-top:10px;">
           <input type="text" id="newCatName" placeholder="اسم القسم الجديد" style="flex:1; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
           <button class="add-btn" style="background:#1e293b; color:#fff; border:none; border-radius:6px; padding:0 15px; font-weight:700; cursor:pointer;" onclick="addCategory()">إضافة</button>
         </div>
@@ -74,10 +108,8 @@
         </div>
 
         <div class="form-group" style="margin-top:10px;">
-          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">الأقسام (اختر قسماً واحداً أو أكثر) *</label>
-          <div id="categoriesCheckboxList" style="max-height: 130px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #fafafa; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <!-- خيارات الأقسام -->
-          </div>
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">الأقسام *</label>
+          <div id="categoriesCheckboxList" style="max-height: 120px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #fafafa; display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
         </div>
 
         <div style="display:flex; gap:10px; margin-top:10px;">
@@ -92,7 +124,7 @@
         </div>
 
         <div class="form-group" style="margin-top:10px;">
-          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">📸 صور الكتاب (يمكنك تحديد عدة صور: الغلاف + صور من الداخل) *</label>
+          <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:4px;">📸 صور الكتاب (تحديد عدة صور معاً) *</label>
           <input type="file" id="bookImageFile" accept="image/*" multiple style="width:100%; font-size:12px;">
           <small id="imagesUploadStatus" style="display:block; color:#2563eb; font-size:11px; margin-top:3px; font-weight:bold;"></small>
         </div>
@@ -106,32 +138,56 @@
       </div>
     </div>
 
-    <!-- عمود العرض والطلبات -->
+    <!-- العمود الأيسر (الرئيسي والأول): البحث المباشر وإدارة الكتب -->
     <div>
-      <div style="background:#fff; padding:20px; border-radius:12px; margin-bottom:25px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-        <h4 style="margin-top:0; color:#0f172a; font-size:16px;">📦 الطلبات الواردة لحظياً</h4>
-        <div id="ordersList" style="margin-top:15px;"></div>
-      </div>
-
-      <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <h4 style="margin:0; color:#0f172a; font-size:16px;">📚 الكتب المتوفرة حالياً</h4>
-          <!-- خانة البحث في لوحة الأدمن -->
+      <div style="background:#fff; padding:22px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        
+        <!-- حقل البحث البارز أول الصفحة -->
+        <div style="background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:18px;">
+          <div style="font-weight:800; color:#0f172a; font-size:15px; margin-bottom:8px;">🔍 البحث الفوري عن الكتب:</div>
           <input 
             type="text" 
             id="adminSearchInput" 
-            placeholder="🔍 بحث باسم الكتاب أو المؤلف..." 
+            placeholder="ابحث عن عنوان الكتاب، اسم المؤلف..." 
             oninput="filterAdminBooks()" 
-            style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; min-width:220px;"
+            style="width:100%; padding:10px 14px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:14px; box-sizing:border-box; outline:none;"
           />
         </div>
-        <div id="adminBooksList" style="margin-top:15px; display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:15px;"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+          <h4 style="margin:0; color:#0f172a; font-size:16px;">📚 قائمة الكتب المتوفرة في المتجر</h4>
+          <span id="booksCountBadge" style="background:#e2e8f0; color:#334155; font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px;">0 كتاب</span>
+        </div>
+
+        <div id="adminBooksList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:15px;"></div>
       </div>
     </div>
 
   </div>
 
-  <!-- نافذة تعديل الكتاب المنبثقة (Edit Modal) -->
+  <!-- نافذة إدارة وتصفية الطلبات المنبثقة -->
+  <div id="ordersModal" class="modal-overlay">
+    <div class="orders-modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:16px;">
+        <h3 style="margin:0; font-size:18px; color:#0f172a; font-weight:800;">📦 إدارة ومتابعة الطلبات</h3>
+        <button onclick="closeOrdersModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✕</button>
+      </div>
+
+      <!-- أزرار فلاتر حالات الطلبات -->
+      <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:15px;">
+        <button class="order-tab-btn active" onclick="filterOrdersByStatus('all', event)">جميع الطلبات</button>
+        <button class="order-tab-btn" onclick="filterOrdersByStatus('جديد', event)">⏳ قيد المراجعة (جديد)</button>
+        <button class="order-tab-btn" onclick="filterOrdersByStatus('تم التجهيز', event)">📦 تم التجهيز</button>
+        <button class="order-tab-btn" onclick="filterOrdersByStatus('تم التوصيل', event)">🚚 تم التوصيل (مكتمل)</button>
+        <button class="order-tab-btn" onclick="filterOrdersByStatus('ملغي', event)">❌ ملغي</button>
+      </div>
+
+      <!-- قائمة الطلبات داخل النافذة -->
+      <div id="ordersList" style="flex:1; overflow-y:auto; padding-right:4px;"></div>
+    </div>
+  </div>
+
+  <!-- نافذة تعديل بيانات الكتاب المنبثقة -->
   <div id="editModal" class="modal-overlay">
     <div class="modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:15px;">
