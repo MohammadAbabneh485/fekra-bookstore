@@ -226,7 +226,7 @@ function renderOrdersList() {
       }
 
       dayBlock += `
-        <div style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius:10px; padding:14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <div style="background: ${cardBg}; border: 1.5px solid ${cardBorder}; border-radius:10px; padding:14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
             <div>
               <span style="font-weight:800; font-size:15px; color:#0F172A;">👤 ${ord.customerName}</span>
@@ -235,12 +235,37 @@ function renderOrdersList() {
             <span style="font-weight:900; font-size:16px; color:#B45309;">${ord.total} د.أ</span>
           </div>
 
-          <div style="font-size:13px; color:#475569; margin-bottom:6px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:10px;">
             📍 <b>العنوان:</b> ${ord.city} ${ord.address ? '- ' + ord.address : ''} ${ord.time ? `| ⏰ ${ord.time}` : ''}
           </div>
 
-          <div style="font-size:12px; background:rgba(255,255,255,0.7); border:1px solid #E2E8F0; padding:8px 10px; border-radius:6px; margin-bottom:10px; color:#334155;">
-            📚 <b>الكتب:</b> ${ord.items.map(i => `${i.title} (الكمية: ${i.qty})`).join(' ، ')}
+          <!-- جدول عرض تفاصيل الكتب المطلوبة -->
+          <div style="background:#fff; border:1px solid #E2E8F0; border-radius:8px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,0.02);">
+            <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:right;">
+              <thead>
+                <tr style="background:#F1F5F9; color:#475569; border-bottom:1px solid #E2E8F0;">
+                  <th style="padding:6px 10px; font-weight:800;">📚 اسم الكتاب</th>
+                  <th style="padding:6px 8px; text-align:center; font-weight:800; width:60px;">الكمية</th>
+                  <th style="padding:6px 8px; text-align:center; font-weight:800; width:70px;">السعر</th>
+                  <th style="padding:6px 10px; text-align:left; font-weight:800; width:80px;">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ord.items.map(it => {
+                  const itemPrice = parseFloat(it.price) || 0;
+                  const itemQty = parseInt(it.qty) || 1;
+                  const itemTotal = (itemPrice * itemQty).toFixed(2);
+                  return `
+                    <tr style="border-bottom:1px solid #F8FAFC;">
+                      <td style="padding:8px 10px; color:#0F172A; font-weight:700;">${it.title}</td>
+                      <td style="padding:8px 8px; text-align:center; color:#2563EB; font-weight:800;">×${itemQty}</td>
+                      <td style="padding:8px 8px; text-align:center; color:#64748B;">${itemPrice} د.أ</td>
+                      <td style="padding:8px 10px; text-align:left; color:#B45309; font-weight:800;">${itemTotal} د.أ</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
           </div>
 
           ${statusFooterHTML}
@@ -256,14 +281,16 @@ function renderOrdersList() {
 function openOrdersModal() {
   const modal = document.getElementById('ordersModal');
   if (modal) {
-    modal.style.display = 'flex';
+    modal.style.setProperty('display', 'flex', 'important');
     renderOrdersList();
   }
 }
 
 function closeOrdersModal() {
   const modal = document.getElementById('ordersModal');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    modal.style.setProperty('display', 'none', 'important');
+  }
 }
 
 function filterOrdersByStatus(status, e) {
