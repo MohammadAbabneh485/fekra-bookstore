@@ -15,7 +15,7 @@ function isNewBook(createdAt) {
   return diffDays >= 0 && diffDays <= 3;
 }
 
-// تحميل البيانات المباشر
+// تحميل البيانات المباشر والسريع
 async function loadData() {
   const grid = document.getElementById('booksGrid');
   const empty = document.getElementById('emptyState');
@@ -31,7 +31,7 @@ async function loadData() {
   if (empty) empty.style.display = 'none';
 
   try {
-    const res = await fetch('/api/data', { cache: 'no-cache' });
+    const res = await fetch('/api/data');
     if (!res.ok) throw new Error('Server warm up');
     const data = await res.json();
     
@@ -42,7 +42,7 @@ async function loadData() {
     renderCategories();
     renderBooks();
   } catch (err) {
-    setTimeout(loadData, 1000);
+    setTimeout(loadData, 1500);
   }
 }
 
