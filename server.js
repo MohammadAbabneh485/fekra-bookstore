@@ -53,7 +53,8 @@ const Order = mongoose.model('Order', new mongoose.Schema({
   date: String,
   time: String,
   status: { type: String, default: 'جديد' },
-  adminNotes: { type: String, default: '' }, // حقل ملاحظات الأدمن
+  customerNotes: { type: String, default: '' }, // ملاحظات العميل
+  adminNotes: { type: String, default: '' },    // ملاحظات الأدمن
   createdAt: String
 }));
 
@@ -233,8 +234,9 @@ app.post('/api/books/delete', async (req, res) => {
   res.json({ success: true });
 });
 
+// مسار إنشاء طلب جديد متضمناً ملاحظات العميل
 app.post('/api/order', async (req, res) => {
-  const { customerName, phone, address, city, items } = req.body;
+  const { customerName, phone, address, city, items, customerNotes } = req.body;
 
   for (const item of items) {
     if (mongoose.Types.ObjectId.isValid(item.id)) {
@@ -263,6 +265,7 @@ app.post('/api/order', async (req, res) => {
     date: dateKey,
     time: timeKey,
     status: 'جديد',
+    customerNotes: customerNotes?.trim() || '',
     adminNotes: '',
     createdAt: `${dateKey} - ${timeKey}`
   });
@@ -279,7 +282,7 @@ app.post('/api/order', async (req, res) => {
 // تعديل الطلب (مشترك بين العميل والأدمن، ويدعم حفظ الملاحظات)
 app.post('/api/orders/update', async (req, res) => {
   try {
-    const { orderId, customerName, phone, city, address, items, adminNotes, isAdmin } = req.body;
+    const { orderId, customerName, phone, city, address, items, customerNotes, adminNotes, isAdmin } = req.body;
 
     let order = await Order.findOne({ orderId });
     if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
@@ -338,6 +341,7 @@ app.post('/api/orders/update', async (req, res) => {
     if (phone) order.phone = phone.trim();
     if (city) order.city = city.trim();
     if (address !== undefined) order.address = address.trim();
+    if (customerNotes !== undefined) order.customerNotes = customerNotes.trim();
     if (adminNotes !== undefined) order.adminNotes = adminNotes.trim();
 
     await order.save();
