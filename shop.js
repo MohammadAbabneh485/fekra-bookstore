@@ -455,7 +455,7 @@ function searchMyOrders() {
   }).join('');
 }
 
-// فتح مودال تعديل الطلب للعميل
+// فتح مودال تعديل الطلب للعميل مع تجهيز قائمة الكتب المتاحة للإضافة
 function openEditOrderModal(orderId) {
   const order = allOrders.find(o => (o.orderId || o.id) === orderId);
   if (!order) return;
@@ -472,8 +472,51 @@ function openEditOrderModal(orderId) {
   const editNotesElem = document.getElementById('editOrderNotes');
   if (editNotesElem) editNotesElem.value = order.customerNotes || '';
 
+  // تعبئة خيارات الكتب المتوفرة في المتجر
+  const selectElem = document.getElementById('editOrderAddBookSelect');
+  if (selectElem) {
+    const availableBooks = allBooks.filter(b => b.quantity > 0);
+    selectElem.innerHTML = '<option value="">-- اختر كتاباً لإضافته إلى الطلب --</option>' +
+      availableBooks.map(b => {
+        const bId = b.id || b._id;
+        return `<option value="${bId}">${b.title} (${b.price} د.أ) - متوفر: ${b.quantity}</option>`;
+      }).join('');
+  }
+
   renderEditOrderItems();
   document.getElementById('editOrderModal').style.display = 'flex';
+}
+
+// إضافة كتاب جديد إلى قائمة أصناف الطلب
+function addBookToEditingOrder() {
+  if (!currentEditingOrder) return;
+  const selectElem = document.getElementById('editOrderAddBookSelect');
+  const selectedBookId = selectElem?.value;
+
+  if (!selectedBookId) {
+    return alert('يرجى اختيار كتاب أولاً من القائمة');
+  }
+
+  const book = allBooks.find(b => (b.id || b._id) === selectedBookId);
+  if (!book) return;
+
+  const existingItem = currentEditingOrder.items.find(it => (it.id || it._id) === selectedBookId || it.title === book.title);
+
+  if (existingItem) {
+    existingItem.qty = (parseInt(existingItem.qty) || 1) + 1;
+  } else {
+    currentEditingOrder.items.push({
+      id: book.id || book._id,
+      title: book.title,
+      price: book.price,
+      qty: 1,
+      image: book.image || 'logo.jpg.jpeg',
+      author: book.author || 'غير محدد'
+    });
+  }
+
+  selectElem.value = '';
+  renderEditOrderItems();
 }
 
 function closeEditOrderModal() {
