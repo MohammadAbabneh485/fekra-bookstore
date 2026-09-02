@@ -156,7 +156,6 @@ function openBookModal(bookId) {
 
   const imagesList = (book.images && book.images.length > 0) ? book.images : [book.image || 'logo.jpg.jpeg'];
 
-  // توليد معرض الصور المصغرة للتنقل بين الصفحات والغلاف
   let thumbnailsHTML = '';
   if (imagesList.length > 1) {
     thumbnailsHTML = `
@@ -304,6 +303,7 @@ function closeCart() {
   document.getElementById('cartModal').style.display = 'none';
 }
 
+// تثبيت الطلب مع إرسال ملاحظات العميل
 async function submitOrder() {
   if (isSubmitting) return;
 
@@ -315,6 +315,7 @@ async function submitOrder() {
   const phone = document.getElementById('custPhone').value.trim();
   const city = document.getElementById('custCity').value.trim();
   const address = document.getElementById('custAddress').value.trim();
+  const customerNotes = document.getElementById('custNotes')?.value.trim() || '';
 
   if (!customerName || !phone || !city) {
     alert('يرجى ملء كافة الحقول الإجبارية (*)');
@@ -333,7 +334,14 @@ async function submitOrder() {
     const res = await fetch('/api/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerName, phone, city, address, items: cart })
+      body: JSON.stringify({
+        customerName,
+        phone,
+        city,
+        address,
+        customerNotes,
+        items: cart
+      })
     });
     const result = await res.json();
     if (result.success) {
@@ -345,6 +353,7 @@ async function submitOrder() {
       document.getElementById('custPhone').value = '';
       document.getElementById('custCity').value = '';
       document.getElementById('custAddress').value = '';
+      if (document.getElementById('custNotes')) document.getElementById('custNotes').value = '';
     } else {
       alert('حدث خطأ أثناء تثبيت الطلب');
     }
@@ -395,6 +404,15 @@ function searchMyOrders() {
       statusBadge = `<span style="background:#dcfce7; color:#16a34a; padding:4px 10px; border-radius:6px; font-weight:bold; font-size:13px;">📦 تم التجهيز</span>`;
     }
 
+    let notesDisplay = '';
+    if (order.customerNotes && order.customerNotes.trim()) {
+      notesDisplay = `
+        <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:12px; color:#1e40af; margin-bottom:8px;">
+          💬 <b>ملاحظتك:</b> ${order.customerNotes}
+        </div>
+      `;
+    }
+
     let actionBtn = '';
     if (order.status === 'ملغي') {
       actionBtn = `<div style="background:#fee2e2; color:#b91c1c; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم إلغاء هذا الطلب واسترجاع الكتب للمتجر</div>`;
@@ -424,12 +442,13 @@ function searchMyOrders() {
         <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
           📅 ${order.date || ''} - ${order.time || ''} | المجموع: <b>${order.total} د.أ</b>
         </div>
-        <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-size:13px;">
+        <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-size:13px; margin-bottom:8px;">
           <div style="font-weight:bold; margin-bottom:4px; color:#334155;">الكتب المطلوبة:</div>
           <ul style="margin:0; padding-right:18px; color:#475569;">
             ${order.items.map(it => `<li>${it.title} (${it.qty}) - ${(parseFloat(it.price) * parseInt(it.qty)).toFixed(2)} د.أ</li>`).join('')}
           </ul>
         </div>
+        ${notesDisplay}
         ${actionBtn}
       </div>
     `;
@@ -449,6 +468,9 @@ function openEditOrderModal(orderId) {
   document.getElementById('editOrderPhone').value = order.phone || '';
   document.getElementById('editOrderCity').value = order.city || '';
   document.getElementById('editOrderAddress').value = order.address || '';
+  
+  const editNotesElem = document.getElementById('editOrderNotes');
+  if (editNotesElem) editNotesElem.value = order.customerNotes || '';
 
   renderEditOrderItems();
   document.getElementById('editOrderModal').style.display = 'flex';
@@ -508,7 +530,7 @@ function removeEditItem(idx) {
   renderEditOrderItems();
 }
 
-// حفظ التعديلات وإرسالها للسيرفر
+// حفظ تعديل الطلب من قبل العميل
 async function saveCustomerOrderEdits() {
   if (!currentEditingOrder) return;
 
@@ -520,6 +542,7 @@ async function saveCustomerOrderEdits() {
   const phone = document.getElementById('editOrderPhone').value.trim();
   const city = document.getElementById('editOrderCity').value.trim();
   const address = document.getElementById('editOrderAddress').value.trim();
+  const customerNotes = document.getElementById('editOrderNotes')?.value.trim() || '';
   const orderId = document.getElementById('editOrderIdVal').value;
 
   if (!customerName || !phone || !city) {
@@ -542,6 +565,7 @@ async function saveCustomerOrderEdits() {
         phone,
         city,
         address,
+        customerNotes,
         items: currentEditingOrder.items
       })
     });
