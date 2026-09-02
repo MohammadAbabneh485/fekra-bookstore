@@ -285,6 +285,78 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
+// تعديل الطلب من قبل العميل (تحديث العناوين، تعديل كميات أو حذف كتب)
+app.post('/api/orders/update', async (req, res) => {
+  try {
+    const { orderId, customerName, phone, city, address, items } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ success: false, message: 'لا يمكن حفظ الطلب بدون أي كتاب. يمكنك إلغاء الطلب بالكامل بدلاً من ذلك.' });
+    }
+
+    let order = await Order.findOne({ orderId });
+    if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
+      order = await Order.findById(orderId);
+    }
+
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'لا يمكن تعديل طلب ملغي' });
+    if (order.status === 'تم التجهيز' || order.status === 'تم التوصيل') {
+      return res.status(400).json({ success: false, message: 'عذراً، تم البدء بتجهيز أو شحن طلبك ولا يمكن تعديله حالياً' });
+    }
+
+    // 1. إعادة الكتب القديمة الخاصة بهذا الطلب للمخزون
+    for (const oldItem of order.items) {
+      const bookId = oldItem.id || oldItem._id;
+      if (mongoose.Types.ObjectId.isValid(bookId)) {
+        await Book.findByIdAndUpdate(bookId, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
+      } else if (oldItem.title) {
+        await Book.findOneAndUpdate({ title: oldItem.title }, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
+      }
+    }
+
+    // 2. فحص وتأكيد وفرة الكميات الجديدة وخصمها من المخزون
+    for (const newItem of items) {
+      const bookId = newItem.id || newItem._id;
+      let book = null;
+      if (mongoose.Types.ObjectId.isValid(bookId)) {
+        book = await Book.findById(bookId);
+      } else if (newItem.title) {
+        book = await Book.findOne({ title: newItem.title });
+      }
+
+      const reqQty = parseInt(newItem.qty) || 1;
+      if (book) {
+        if (book.quantity < reqQty) {
+          io.emit('data_updated', await getFullData(true));
+          return res.status(400).json({ 
+            success: false, 
+            message: `عذراً، الكمية المتوفرة من كتاب "${book.title}" هي ${book.quantity} فقط.` 
+          });
+        }
+        book.quantity = Math.max(0, book.quantity - reqQty);
+        await book.save();
+      }
+    }
+
+    // 3. تحديث بيانات الطلب والمجموع الكلي
+    order.customerName = customerName ? customerName.trim() : order.customerName;
+    order.phone = phone ? phone.trim() : order.phone;
+    order.city = city ? city.trim() : order.city;
+    order.address = address !== undefined ? address.trim() : order.address;
+    order.items = items;
+    order.total = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.qty)), 0) + (order.deliveryFee || 2);
+
+    await order.save();
+
+    const fullData = await getFullData(true);
+    io.emit('data_updated', fullData);
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'حدث خطأ أثناء تعديل الطلب: ' + err.message });
+  }
+});
+
 // إلغاء الطلب واسترجاع الكتاب
 app.post('/api/orders/cancel', async (req, res) => {
   const targetId = req.body.orderId || req.body.id;
