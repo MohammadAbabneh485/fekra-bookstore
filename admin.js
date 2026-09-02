@@ -2,6 +2,7 @@ const socket = io();
 let currentImagesBase64 = [];
 let globalData = { books: [], categories: [], orders: [] };
 let currentOrdersFilter = 'all';
+let currentAdminEditingOrder = null;
 
 // معالجة رفع الصور المتعددة وضغطها
 const fileInput = document.getElementById('bookImageFile');
@@ -133,7 +134,7 @@ function renderBooksGrid(books) {
   });
 }
 
-// عرض وإدارة وتصفية الطلبات
+// عرض وإدارة وتصفية الطلبات في لوحة الأدمن
 function renderOrdersList() {
   const ordersContainer = document.getElementById('ordersList');
   const badge = document.getElementById('ordersHeaderBadge');
@@ -173,6 +174,7 @@ function renderOrdersList() {
     `;
 
     dayOrders.forEach(ord => {
+      const orderIdVal = ord.orderId || ord.id;
       const isCancelled = ord.status === 'ملغي';
       const isDone = ord.status === 'تم التجهيز';
       const isDelivered = ord.status === 'تم التوصيل';
@@ -190,19 +192,32 @@ function renderOrdersList() {
         cardBorder = '#86EFAC';
       }
 
+      // عرض الملاحظات إذا كانت موجودة
+      let notesHTML = '';
+      if (ord.adminNotes && ord.adminNotes.trim()) {
+        notesHTML = `
+          <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:6px 10px; font-size:12px; color:#92400E; margin-bottom:10px;">
+            📌 <b>ملاحظات الإدارة:</b> ${ord.adminNotes}
+          </div>
+        `;
+      }
+
       let statusFooterHTML = '';
       if (isCancelled) {
         statusFooterHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #FCA5A5; padding-top:8px;">
             <span style="font-size:12px; font-weight:800; color:#DC2626;">❌ الحالة: ملغي</span>
-            <span style="background:#FEE2E2; color:#991B1B; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">تم إلغاء الطلب</span>
+            <button onclick="toggleOrderStatus('${orderIdVal}', 'جديد')" style="background:#64748B; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; font-weight:bold;">إعادة تفعيل الطلب ↩️</button>
           </div>
         `;
       } else if (isDelivered) {
         statusFooterHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #CBD5E1; padding-top:8px;">
             <span style="font-size:12px; font-weight:800; color:#1E293B;">🎉 الحالة: تم التوصيل للعميل بنجاح</span>
-            <span style="background:#E2E8F0; color:#475569; font-size:11px; padding:4px 8px; border-radius:6px; font-weight:700;">🔒 طلب مكتمل ومقفل</span>
+            <div style="display:flex; gap:6px;">
+              <button onclick="openAdminEditOrderModal('${orderIdVal}')" style="padding:4px 8px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid #CBD5E1; background:#fff; color:#334155;">✏️ ملاحظات</button>
+              <button onclick="cancelAdminOrder('${orderIdVal}')" style="background:#FEE2E2; color:#DC2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">إلغاء ✖</button>
+            </div>
           </div>
         `;
       } else {
@@ -212,13 +227,21 @@ function renderOrdersList() {
               ● الحالة: ${ord.status || 'جديد'}
             </span>
             <div style="display:flex; gap:6px;">
-              <button onclick="toggleOrderStatus('${ord.orderId || ord.id}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
-                      style="padding:6px 12px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff; transition:0.2s;">
+              <button onclick="openAdminEditOrderModal('${orderIdVal}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid #BFDBFE; background:#EFF6FF; color:#2563EB;">
+                ✏️ تعديل وملاحظات
+              </button>
+              <button onclick="toggleOrderStatus('${orderIdVal}', '${isDone ? 'جديد' : 'تم التجهيز'}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:${isDone ? '#64748B' : '#16A34A'}; color:#fff;">
                 ${isDone ? '↩️ كجديد' : '✅ جاهز'}
               </button>
-              <button onclick="confirmDelivery('${ord.orderId || ord.id}')" 
-                      style="padding:6px 12px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#2563EB; color:#fff; transition:0.2s;">
-                🚚 وصل الطلب
+              <button onclick="confirmDelivery('${orderIdVal}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#2563EB; color:#fff;">
+                🚚 وصل
+              </button>
+              <button onclick="cancelAdminOrder('${orderIdVal}')" 
+                      style="padding:6px 10px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:none; background:#FEE2E2; color:#DC2626;">
+                ✖ إلغاء
               </button>
             </div>
           </div>
@@ -235,12 +258,12 @@ function renderOrdersList() {
             <span style="font-weight:900; font-size:16px; color:#B45309;">${ord.total} د.أ</span>
           </div>
 
-          <div style="font-size:13px; color:#475569; margin-bottom:10px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:8px;">
             📍 <b>العنوان:</b> ${ord.city} ${ord.address ? '- ' + ord.address : ''} ${ord.time ? `| ⏰ ${ord.time}` : ''}
           </div>
 
-          <!-- جدول عرض تفاصيل الكتب المطلوبة -->
-          <div style="background:#fff; border:1px solid #E2E8F0; border-radius:8px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 2px rgba(0,0,0,0.02);">
+          <!-- جدول عرض الكتب -->
+          <div style="background:#fff; border:1px solid #E2E8F0; border-radius:8px; overflow:hidden; margin-bottom:8px;">
             <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:right;">
               <thead>
                 <tr style="background:#F1F5F9; color:#475569; border-bottom:1px solid #E2E8F0;">
@@ -268,6 +291,7 @@ function renderOrdersList() {
             </table>
           </div>
 
+          ${notesHTML}
           ${statusFooterHTML}
         </div>
       `;
@@ -275,6 +299,147 @@ function renderOrdersList() {
 
     dayBlock += `</div>`;
     ordersContainer.innerHTML += dayBlock;
+  }
+}
+
+// دالة فتح نافذة تعديل وملاحظات الطلب للأدمن
+function openAdminEditOrderModal(orderId) {
+  const order = (globalData.orders || []).find(o => (o.orderId || o.id) === orderId);
+  if (!order) return;
+
+  currentAdminEditingOrder = JSON.parse(JSON.stringify(order));
+
+  document.getElementById('adminEditOrderId').value = order.orderId || order.id;
+  document.getElementById('adminEditOrderHeading').innerText = `✏️ تعديل الطلب رقم (${order.orderId || order.id})`;
+  document.getElementById('adminEditCustName').value = order.customerName || '';
+  document.getElementById('adminEditCustPhone').value = order.phone || '';
+  document.getElementById('adminEditCustCity').value = order.city || '';
+  document.getElementById('adminEditCustAddress').value = order.address || '';
+  document.getElementById('adminEditNotes').value = order.adminNotes || '';
+
+  renderAdminEditOrderItems();
+  document.getElementById('adminEditOrderModal').style.display = 'flex';
+}
+
+function closeAdminEditOrderModal() {
+  document.getElementById('adminEditOrderModal').style.display = 'none';
+  currentAdminEditingOrder = null;
+}
+
+function renderAdminEditOrderItems() {
+  const container = document.getElementById('adminEditOrderItemsList');
+  if (!container || !currentAdminEditingOrder) return;
+
+  if (currentAdminEditingOrder.items.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#ef4444; font-size:12px;">تم حذف كافة الكتب!</p>';
+  } else {
+    container.innerHTML = currentAdminEditingOrder.items.map((it, idx) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:6px 10px; border-radius:6px; margin-bottom:6px; border:1px solid #e2e8f0;">
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; color:#0f172a;">${it.title}</div>
+          <div style="font-size:11px; color:#64748b;">${it.price} د.أ للنسخة</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button onclick="changeAdminOrderItemQty(${idx}, -1)" style="padding:2px 7px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:4px; cursor:pointer; font-weight:bold;">-</button>
+          <span style="font-weight:bold; font-size:13px; min-width:18px; text-align:center;">${it.qty}</span>
+          <button onclick="changeAdminOrderItemQty(${idx}, 1)" style="padding:2px 7px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:4px; cursor:pointer; font-weight:bold;">+</button>
+          <button onclick="removeAdminOrderItem(${idx})" style="background:#fee2e2; color:#dc2626; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px;">حذف 🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const subTotal = currentAdminEditingOrder.items.reduce((sum, it) => sum + (parseFloat(it.price) * parseInt(it.qty)), 0);
+  const totalDisplay = document.getElementById('adminEditOrderTotalDisplay');
+  if (totalDisplay) {
+    totalDisplay.innerText = (subTotal > 0 ? (subTotal + 2).toFixed(2) : '0') + ' د.أ';
+  }
+}
+
+function changeAdminOrderItemQty(idx, delta) {
+  if (!currentAdminEditingOrder) return;
+  const it = currentAdminEditingOrder.items[idx];
+  const newQty = (parseInt(it.qty) || 1) + delta;
+  if (newQty <= 0) {
+    removeAdminOrderItem(idx);
+    return;
+  }
+  it.qty = newQty;
+  renderAdminEditOrderItems();
+}
+
+function removeAdminOrderItem(idx) {
+  if (!currentAdminEditingOrder) return;
+  currentAdminEditingOrder.items.splice(idx, 1);
+  renderAdminEditOrderItems();
+}
+
+// حفظ التعديلات والملاحظات من قبل الأدمن
+async function saveAdminOrderEdits() {
+  if (!currentAdminEditingOrder) return;
+
+  if (currentAdminEditingOrder.items.length === 0) {
+    return alert('لا يمكن ترك الطلب فارغاً بدون كتب، يمكنك إلغاء الطلب بدلاً من ذلك.');
+  }
+
+  const orderId = document.getElementById('adminEditOrderId').value;
+  const customerName = document.getElementById('adminEditCustName').value.trim();
+  const phone = document.getElementById('adminEditCustPhone').value.trim();
+  const city = document.getElementById('adminEditCustCity').value.trim();
+  const address = document.getElementById('adminEditCustAddress').value.trim();
+  const adminNotes = document.getElementById('adminEditNotes').value.trim();
+
+  if (!customerName || !phone || !city) {
+    return alert('يرجى ملء كافة الحقول الإجبارية (*)');
+  }
+
+  try {
+    const res = await fetch('/api/orders/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        customerName,
+        phone,
+        city,
+        address,
+        adminNotes,
+        items: currentAdminEditingOrder.items,
+        isAdmin: true
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert('تم حفظ تعديلات وملاحظات الطلب بنجاح');
+      closeAdminEditOrderModal();
+    } else {
+      alert(data.message || 'تعذر تعديل الطلب');
+    }
+  } catch (err) {
+    alert('حدث خطأ أثناء حفظ تعديلات الطلب');
+  }
+}
+
+// دالة إلغاء الطلب من قبل صاحب المتجر واسترجاع الكتب
+async function cancelAdminOrder(orderId) {
+  if (!confirm(`هل أنت متأكد من رغبتك في إلغاء الطلب (${orderId})؟ سيتم إعادة الكتب مباشرة إلى المخزون المتوفر بالمتجر.`)) return;
+
+  try {
+    const res = await fetch('/api/orders/cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, isAdmin: true })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert('تم إلغاء الطلب واسترجاع الكتب بنجاح');
+    } else {
+      alert(data.message || 'تعذر إلغاء الطلب');
+    }
+  } catch (err) {
+    alert('حدث خطأ أثناء محاولة إلغاء الطلب');
   }
 }
 
@@ -301,7 +466,6 @@ function filterOrdersByStatus(status, e) {
 }
 
 function renderData(data) {
-  // 1. خيارات الأقسام لنموذج الإضافة
   const catListContainer = document.getElementById('categoriesCheckboxList');
   if (catListContainer) {
     catListContainer.innerHTML = '';
@@ -315,20 +479,15 @@ function renderData(data) {
     });
   }
 
-  // 2. عرض شبكة الكتب المتاحة مع البحث
   filterAdminBooks();
-
-  // 3. تحديث قائمة وشارة الطلبات
   renderOrdersList();
 }
 
-// دالة تأكيد وصول الطلب وقفله نهائياً
 async function confirmDelivery(orderId) {
-  if (!confirm('هل تأكد استلام العميل للطلب؟ بعد الضغط على موافق لن تتمكن من تغيير حالة الطلب.')) return;
+  if (!confirm('هل تأكد استلام العميل للطلب؟')) return;
   await toggleOrderStatus(orderId, 'تم التوصيل');
 }
 
-// دالة فتح نافذة التعديل
 function openEditModal(bookId) {
   const book = (globalData.books || []).find(b => b.id === bookId || b._id === bookId);
   if (!book) return;
@@ -364,7 +523,6 @@ function closeEditModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// دالة حفظ التعديل وإرسالها للسيرفر
 async function saveEditBook() {
   const bookId = document.getElementById('editBookId').value;
   const title = document.getElementById('editTitle').value.trim();
