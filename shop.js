@@ -5,6 +5,7 @@ let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
 let isSubmitting = false;
+let currentEditingOrder = null;
 
 // دالة فحص ما إذا كان الكتاب مضافاً خلال آخر 3 أيام (72 ساعة)
 function isNewBook(createdAt) {
@@ -208,7 +209,6 @@ function openBookModal(bookId) {
   modal.style.display = 'flex';
 }
 
-// دالة تبديل الصورة المعروضة في النافذة المنبثقة
 function switchModalMainImage(imgUrl) {
   const mainImg = document.getElementById('modalMainBookImg');
   if (mainImg) mainImg.src = imgUrl;
@@ -401,9 +401,18 @@ function searchMyOrders() {
     } else if (order.status === 'تم التوصيل') {
       actionBtn = `<div style="background:#e0f2fe; color:#075985; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">نتمنى لك قراءة ممتعة! شكراً لاختيارك مكتبة فكرة 📚</div>`;
     } else if (order.status === 'تم التجهيز') {
-      actionBtn = `<div style="background:#dcfce7; color:#15803d; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم تجهيز وتغليف طلبك وهو جاهز للشحن</div>`;
+      actionBtn = `<div style="background:#dcfce7; color:#15803d; text-align:center; padding:8px; border-radius:6px; font-weight:bold; font-size:13px; margin-top:10px;">تم تجهيز طلبك ولا يمكن تعديله أو إلغاؤه</div>`;
     } else {
-      actionBtn = `<button onclick="cancelCustomerOrder('${orderIdVal}', this)" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; border-radius:6px; width:100%; cursor:pointer; font-weight:bold; margin-top:10px;">إلغاء الطلب بالكامل ✖</button>`;
+      actionBtn = `
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button onclick="openEditOrderModal('${orderIdVal}')" style="flex:1; background:#2563eb; color:#fff; border:none; padding:8px 10px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
+            ✏️ تعديل الطلب
+          </button>
+          <button onclick="cancelCustomerOrder('${orderIdVal}', this)" style="background:#ef4444; color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-weight:bold; font-size:13px;">
+            إلغاء الطلب ✖
+          </button>
+        </div>
+      `;
     }
 
     return `
@@ -413,18 +422,146 @@ function searchMyOrders() {
           ${statusBadge}
         </div>
         <div style="font-size:12px; color:#64748b; margin-bottom:8px;">
-          📅 ${order.date || ''} - ${order.time || ''} | المجموع الكلي: <b>${order.total} د.أ</b>
+          📅 ${order.date || ''} - ${order.time || ''} | المجموع: <b>${order.total} د.أ</b>
         </div>
         <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-size:13px;">
           <div style="font-weight:bold; margin-bottom:4px; color:#334155;">الكتب المطلوبة:</div>
           <ul style="margin:0; padding-right:18px; color:#475569;">
-            ${order.items.map(it => `<li>${it.title} (${it.qty})</li>`).join('')}
+            ${order.items.map(it => `<li>${it.title} (${it.qty}) - ${(parseFloat(it.price) * parseInt(it.qty)).toFixed(2)} د.أ</li>`).join('')}
           </ul>
         </div>
         ${actionBtn}
       </div>
     `;
   }).join('');
+}
+
+// فتح مودال تعديل الطلب للعميل
+function openEditOrderModal(orderId) {
+  const order = allOrders.find(o => (o.orderId || o.id) === orderId);
+  if (!order) return;
+
+  currentEditingOrder = JSON.parse(JSON.stringify(order));
+
+  document.getElementById('editOrderIdVal').value = order.orderId || order.id;
+  document.getElementById('editOrderTitle').innerText = `✏️ تعديل الطلب رقم (${order.orderId || order.id})`;
+  document.getElementById('editOrderName').value = order.customerName || '';
+  document.getElementById('editOrderPhone').value = order.phone || '';
+  document.getElementById('editOrderCity').value = order.city || '';
+  document.getElementById('editOrderAddress').value = order.address || '';
+
+  renderEditOrderItems();
+  document.getElementById('editOrderModal').style.display = 'flex';
+}
+
+function closeEditOrderModal() {
+  document.getElementById('editOrderModal').style.display = 'none';
+  currentEditingOrder = null;
+}
+
+function renderEditOrderItems() {
+  const container = document.getElementById('editOrderItemsList');
+  if (!container || !currentEditingOrder) return;
+
+  if (currentEditingOrder.items.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:#ef4444; font-size:12px; margin:5px 0;">تم حذف كافة الكتب! يجب أن يحتوي الطلب على كتاب واحد على الأقل.</p>';
+  } else {
+    container.innerHTML = currentEditingOrder.items.map((it, idx) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:#fff; padding:6px 10px; border-radius:6px; margin-bottom:6px; border:1px solid #e2e8f0;">
+        <div style="flex:1;">
+          <div style="font-size:13px; font-weight:700; color:#0f172a;">${it.title}</div>
+          <div style="font-size:11px; color:#64748b;">${it.price} د.أ للنسخة</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button onclick="changeEditItemQty(${idx}, -1)" style="padding:2px 7px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:4px; cursor:pointer; font-weight:bold;">-</button>
+          <span style="font-weight:bold; font-size:13px; min-width:18px; text-align:center;">${it.qty}</span>
+          <button onclick="changeEditItemQty(${idx}, 1)" style="padding:2px 7px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:4px; cursor:pointer; font-weight:bold;">+</button>
+          <button onclick="removeEditItem(${idx})" style="background:#fee2e2; color:#dc2626; border:none; padding:3px 8px; border-radius:4px; cursor:pointer; font-size:11px; margin-right:4px;">حذف 🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const subTotal = currentEditingOrder.items.reduce((sum, it) => sum + (parseFloat(it.price) * parseInt(it.qty)), 0);
+  const totalDisplay = document.getElementById('editOrderTotalDisplay');
+  if (totalDisplay) {
+    totalDisplay.innerText = (subTotal > 0 ? (subTotal + 2).toFixed(2) : '0') + ' د.أ';
+  }
+}
+
+function changeEditItemQty(idx, delta) {
+  if (!currentEditingOrder) return;
+  const item = currentEditingOrder.items[idx];
+  const newQty = (parseInt(item.qty) || 1) + delta;
+
+  if (newQty <= 0) {
+    removeEditItem(idx);
+    return;
+  }
+  item.qty = newQty;
+  renderEditOrderItems();
+}
+
+function removeEditItem(idx) {
+  if (!currentEditingOrder) return;
+  currentEditingOrder.items.splice(idx, 1);
+  renderEditOrderItems();
+}
+
+// حفظ التعديلات وإرسالها للسيرفر
+async function saveCustomerOrderEdits() {
+  if (!currentEditingOrder) return;
+
+  if (currentEditingOrder.items.length === 0) {
+    return alert('لا يمكن حفظ الطلب فارغاً! يمكنك إلغاء الطلب بالكامل بدلاً من ذلك.');
+  }
+
+  const customerName = document.getElementById('editOrderName').value.trim();
+  const phone = document.getElementById('editOrderPhone').value.trim();
+  const city = document.getElementById('editOrderCity').value.trim();
+  const address = document.getElementById('editOrderAddress').value.trim();
+  const orderId = document.getElementById('editOrderIdVal').value;
+
+  if (!customerName || !phone || !city) {
+    return alert('يرجى التأكد من ملء جميع الحقول الإلزامية (*)');
+  }
+
+  const saveBtn = document.getElementById('saveEditOrderBtn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerText = 'جارٍ الحفظ...';
+  }
+
+  try {
+    const res = await fetch('/api/orders/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        customerName,
+        phone,
+        city,
+        address,
+        items: currentEditingOrder.items
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert('تم تحديث الطلب بنجاح!');
+      closeEditOrderModal();
+      searchMyOrders();
+    } else {
+      alert(data.message || 'تعذر تعديل الطلب');
+    }
+  } catch (err) {
+    alert('حدث خطأ أثناء حفظ التعديل');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerText = 'حفظ التعديلات';
+    }
+  }
 }
 
 async function cancelCustomerOrder(orderId, btn) {
