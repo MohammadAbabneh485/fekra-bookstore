@@ -84,9 +84,35 @@
       background: #fee2e2;
       color: #ef4444;
     }
+
+    /* شريط التنبيه العائم لاختيار الكتب للطلب */
+    .edit-mode-banner {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: 50px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      z-index: 10001;
+      align-items: center;
+      gap: 15px;
+      border: 2px solid #3b82f6;
+    }
   </style>
 </head>
 <body>
+
+  <!-- شريط المتابعة أثناء اختيار الكتب من المتجر -->
+  <div id="editModeBanner" class="edit-mode-banner">
+    <span style="font-size: 13px; font-weight: 700;">🔄 وضع اختيار كتب للطلب الجاري تعديله</span>
+    <button onclick="resumeEditOrderModal()" style="background:#2563eb; color:#fff; border:none; padding:7px 16px; border-radius:20px; font-weight:800; cursor:pointer; font-size:12px;">
+      العودة للطلب ومتابعة التعديل 👈
+    </button>
+  </div>
 
   <!-- الهيدر -->
   <header class="header">
@@ -203,18 +229,14 @@
       <input type="hidden" id="editOrderIdVal">
 
       <div style="margin-bottom:14px;">
-        <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:6px;">📚 الكتب في هذا الطلب:</label>
-        <div id="editOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
-        
-        <!-- قسم إضافة كتاب جديد للطلب -->
-        <div style="display:flex; gap:8px;">
-          <select id="editOrderAddBookSelect" style="flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#fff;">
-            <option value="">-- اختر كتاباً لإضافته إلى الطلب --</option>
-          </select>
-          <button type="button" onclick="addBookToEditingOrder()" style="background:#10b981; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer; white-space:nowrap;">
-            ➕ إضافة للطلب
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:13px; font-weight:700; color:#334155; margin:0;">📚 الكتب في هذا الطلب:</label>
+          <!-- زر الانتقال لتصفح المتجر واختيار كتب -->
+          <button type="button" onclick="browseStoreToAddBooks()" style="background:#0284c7; color:#fff; border:none; padding:5px 12px; border-radius:6px; font-size:12px; font-weight:bold; cursor:pointer;">
+            🔍 تصفح واختيار كتب من المتجر
           </button>
         </div>
+        <div id="editOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:180px; overflow-y:auto;"></div>
       </div>
 
       <div class="form-group" style="margin-bottom:10px;">
