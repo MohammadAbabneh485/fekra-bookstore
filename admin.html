@@ -32,7 +32,7 @@
       background: #f8fafc;
       border-radius: 16px;
       width: 100%;
-      max-width: 900px;
+      max-width: 920px;
       padding: 24px;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
       max-height: 92vh;
@@ -59,7 +59,7 @@
 </head>
 <body style="background:#f1f5f9; font-family: system-ui, -apple-system, sans-serif; margin:0;">
 
-  <!-- الهيدر مع زر مخصص للطلبات -->
+  <!-- الهيدر مع زر إدارة الطلبات -->
   <header class="header">
     <div class="header-inner" style="display:flex; justify-content:space-between; align-items:center; max-width:1250px; margin:0 auto; padding:12px 20px;">
       <a href="/shop" class="logo-container" style="display:flex; align-items:center; gap:10px; text-decoration:none;">
@@ -71,7 +71,6 @@
       </a>
       
       <div style="display:flex; gap:10px; align-items:center;">
-        <!-- زر فتح نافذة إدارة الطلبات -->
         <button onclick="openOrdersModal()" style="background:#2563eb; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(37,99,235,0.3);">
           📦 إدارة الطلبات <span id="ordersHeaderBadge" style="background:#ef4444; color:#fff; font-size:11px; padding:2px 7px; border-radius:10px;">0</span>
         </button>
@@ -82,9 +81,8 @@
 
   <div class="container" style="max-width:1250px; margin:20px auto; padding:0 15px; display:grid; grid-template-columns: 360px 1fr; gap:25px;">
     
-    <!-- العمود الأيمن: إضافة الأقسام والكتب -->
+    <!-- عمود الإضافة -->
     <div>
-      <!-- إضافة قسم جديد -->
       <div style="background:#fff; padding:18px; border-radius:12px; margin-bottom:20px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
         <h4 style="margin-top:0; color:#0f172a; font-size:15px;">📁 إضافة قسم جديد</h4>
         <div style="display:flex; gap:8px; margin-top:10px;">
@@ -93,7 +91,6 @@
         </div>
       </div>
 
-      <!-- إضافة كتاب جديد -->
       <div style="background:#fff; padding:20px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
         <h4 style="margin-top:0; color:#0f172a; font-size:15px;">📖 إضافة كتاب جديد</h4>
         
@@ -138,11 +135,9 @@
       </div>
     </div>
 
-    <!-- العمود الأيسر (الرئيسي والأول): البحث المباشر وإدارة الكتب -->
+    <!-- عمود البحث والكتب المتوفرة -->
     <div>
       <div style="background:#fff; padding:22px; border-radius:12px; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
-        
-        <!-- حقل البحث البارز أول الصفحة -->
         <div style="background:#f8fafc; padding:16px; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:18px;">
           <div style="font-weight:800; color:#0f172a; font-size:15px; margin-bottom:8px;">🔍 البحث الفوري عن الكتب:</div>
           <input 
@@ -166,24 +161,79 @@
   </div>
 
   <!-- نافذة إدارة وتصفية الطلبات المنبثقة -->
-  <div id="ordersModal" class="modal-overlay">
+  <div id="ordersModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); z-index:99999; align-items:center; justify-content:center; padding:15px;">
     <div class="orders-modal-box">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:16px;">
         <h3 style="margin:0; font-size:18px; color:#0f172a; font-weight:800;">📦 إدارة ومتابعة الطلبات</h3>
-        <button onclick="closeOrdersModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#64748b;">✕</button>
+        <button onclick="closeOrdersModal()" style="background:#fee2e2; color:#ef4444; border:none; width:34px; height:34px; border-radius:50%; font-size:18px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
       </div>
 
-      <!-- أزرار فلاتر حالات الطلبات -->
+      <!-- فلاتر الطلبات -->
       <div style="display:flex; gap:8px; overflow-x:auto; padding-bottom:10px; margin-bottom:15px;">
         <button class="order-tab-btn active" onclick="filterOrdersByStatus('all', event)">جميع الطلبات</button>
         <button class="order-tab-btn" onclick="filterOrdersByStatus('جديد', event)">⏳ قيد المراجعة (جديد)</button>
         <button class="order-tab-btn" onclick="filterOrdersByStatus('تم التجهيز', event)">📦 تم التجهيز</button>
-        <button class="order-tab-btn" onclick="filterOrdersByStatus('تم التوصيل', event)">🚚 تم التوصيل (مكتمل)</button>
+        <button class="order-tab-btn" onclick="filterOrdersByStatus('تم التوصيل', event)">🚚 تم التوصيل</button>
         <button class="order-tab-btn" onclick="filterOrdersByStatus('ملغي', event)">❌ ملغي</button>
       </div>
 
-      <!-- قائمة الطلبات داخل النافذة -->
+      <!-- قائمة الطلبات -->
       <div id="ordersList" style="flex:1; overflow-y:auto; padding-right:4px;"></div>
+    </div>
+  </div>
+
+  <!-- نافذة تعديل بيانات الطلب للأدمن -->
+  <div id="adminEditOrderModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); backdrop-filter:blur(4px); z-index:100000; align-items:center; justify-content:center; padding:15px;">
+    <div style="background:#fff; border-radius:14px; width:100%; max-width:600px; padding:22px; max-height:90vh; overflow-y:auto; box-sizing:border-box;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:10px; margin-bottom:15px;">
+        <h3 id="adminEditOrderHeading" style="margin:0; font-size:17px; color:#0f172a; font-weight:800;">✏️ تعديل بيانات وملاحظات الطلب</h3>
+        <button onclick="closeAdminEditOrderModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#64748b;">✕</button>
+      </div>
+
+      <input type="hidden" id="adminEditOrderId">
+
+      <div style="margin-bottom:12px;">
+        <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:6px;">📚 أصناف وكميات الطلب:</label>
+        <div id="adminEditOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:160px; overflow-y:auto;"></div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">اسم العميل *</label>
+          <input type="text" id="adminEditCustName" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">رقم الهاتف *</label>
+          <input type="tel" id="adminEditCustPhone" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">المدينة / المحافظة *</label>
+          <input type="text" id="adminEditCustCity" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">العنوان التفصيلي</label>
+          <input type="text" id="adminEditCustAddress" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box;">
+        </div>
+      </div>
+
+      <!-- حقل ملاحظات الأدمن الخاصة -->
+      <div style="margin-bottom:15px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:#b45309; margin-bottom:4px;">📝 ملاحظات المتجر على هذا الطلب:</label>
+        <textarea id="adminEditNotes" rows="2" placeholder="اكتب أي ملاحظة عن التوصيل، رغبة العميل، وقت التسليم..." style="width:100%; padding:8px 10px; border:1.5px solid #fde68a; background:#fffbeb; border-radius:6px; box-sizing:border-box; font-family:inherit; font-size:13px;"></textarea>
+      </div>
+
+      <div style="background:#f1f5f9; padding:10px 14px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <span style="font-size:13px; font-weight:700; color:#334155;">المجموع الإجمالي (شامل التوصيل 2 د.أ):</span>
+        <b style="color:#b45309; font-size:16px;" id="adminEditOrderTotalDisplay">0 د.أ</b>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="saveAdminOrderEdits()" style="flex:1; background:#2563eb; color:#fff; border:none; padding:10px; border-radius:6px; font-weight:700; cursor:pointer;">حفظ تعديلات الطلب</button>
+        <button onclick="closeAdminEditOrderModal()" style="background:#e2e8f0; color:#334155; border:none; padding:10px 16px; border-radius:6px; font-weight:700; cursor:pointer;">إلغاء</button>
+      </div>
     </div>
   </div>
 
