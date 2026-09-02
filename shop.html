@@ -171,7 +171,7 @@
 
   <!-- مودال خانة طلباتي -->
   <div class="modal" id="myOrdersModal">
-    <div class="modal-content" style="max-width: 520px;">
+    <div class="modal-content" style="max-width: 540px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
         <h3 style="font-size:18px; font-weight:800; color:var(--primary, #1e293b);">📦 متابعة طلباتي</h3>
         <button onclick="closeMyOrdersModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#94a3b8;">✕</button>
@@ -182,7 +182,54 @@
         <button onclick="searchMyOrders()" style="background:#1e293b; color:#fff; border:none; border-radius:8px; padding:0 16px; font-weight:700; cursor:pointer;">بحث</button>
       </div>
 
-      <div id="myOrdersContent" style="margin-top:15px; max-height:400px; overflow-y:auto;"></div>
+      <div id="myOrdersContent" style="margin-top:15px; max-height:420px; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- مودال تعديل الطلب للعميل -->
+  <div class="modal" id="editOrderModal">
+    <div class="modal-content" style="max-width: 550px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+        <h3 style="font-size:17px; font-weight:800; color:#1e293b; margin:0;" id="editOrderTitle">✏️ تعديل الطلب</h3>
+        <button onclick="closeEditOrderModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:#94a3b8;">✕</button>
+      </div>
+
+      <input type="hidden" id="editOrderIdVal">
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:6px;">📚 الكتب في هذا الطلب:</label>
+        <div id="editOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:180px; overflow-y:auto;"></div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:10px;">
+        <label style="font-size:12px; font-weight:700; color:#475569;">الاسم الكامل *</label>
+        <input type="text" id="editOrderName" required style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:10px;">
+        <label style="font-size:12px; font-weight:700; color:#475569;">رقم الهاتف *</label>
+        <input type="tel" id="editOrderPhone" required style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:10px;">
+        <label style="font-size:12px; font-weight:700; color:#475569;">المحافظة والمنطقة *</label>
+        <input type="text" id="editOrderCity" required style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:700; color:#475569;">العنوان التفصيلي</label>
+        <input type="text" id="editOrderAddress" style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
+      </div>
+
+      <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; padding:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:13px; font-weight:700; color:#92400e;">المجموع الجديد (شامل التوصيل 2 د.أ):</span>
+        <b style="color:#b45309; font-size:15px;" id="editOrderTotalDisplay">0 د.أ</b>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button id="saveEditOrderBtn" onclick="saveCustomerOrderEdits()" style="flex:1; background:#2563eb; color:#fff; border:none; padding:10px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">حفظ التعديلات</button>
+        <button onclick="closeEditOrderModal()" style="background:#94a3b8; color:#fff; border:none; padding:10px 16px; border-radius:8px; font-weight:bold; font-size:13px; cursor:pointer;">إلغاء</button>
+      </div>
     </div>
   </div>
 
