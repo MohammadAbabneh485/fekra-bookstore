@@ -156,6 +156,12 @@
       <div class="form-group"><label>المحافظة والمنطقة *</label><input type="text" id="custCity" placeholder="مثال: عمان - الجبيهة" required></div>
       <div class="form-group"><label>العنوان بالتفصيل</label><input type="text" id="custAddress" placeholder="اسم الشارع، رقم البناية، معالم قريبة"></div>
 
+      <!-- خانة ملاحظات العميل الجديدة -->
+      <div class="form-group" style="margin-top:10px;">
+        <label style="font-size:12px; font-weight:700; color:#334155;">ملاحظات إضافية على الطلب (اختياري)</label>
+        <textarea id="custNotes" rows="2" placeholder="اكتب ملاحظاتك هنا (مثل: أوقات الاستلام المفضلة، تعليمات التوصيل...)" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box; font-family:inherit; font-size:13px;"></textarea>
+      </div>
+
       <div class="checkout-summary">
         <div class="bill-row"><span>قيمة الكتب:</span><b id="subTotal">0 د.أ</b></div>
         <div class="bill-row"><span>أجور التوصيل:</span><b>2 د.أ</b></div>
@@ -216,9 +222,15 @@
         <input type="text" id="editOrderCity" required style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
       </div>
 
-      <div class="form-group" style="margin-bottom:14px;">
+      <div class="form-group" style="margin-bottom:10px;">
         <label style="font-size:12px; font-weight:700; color:#475569;">العنوان التفصيلي</label>
         <input type="text" id="editOrderAddress" style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box;">
+      </div>
+
+      <!-- خانة الملاحظات داخل نافذة التعديل -->
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:700; color:#475569;">ملاحظات إضافية على الطلب</label>
+        <textarea id="editOrderNotes" rows="2" placeholder="أي ملاحظة إضافية تود تعديلها..." style="padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px;"></textarea>
       </div>
 
       <div style="background:#fffbeb; border:1px solid #fef3c7; border-radius:8px; padding:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
