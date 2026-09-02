@@ -192,11 +192,21 @@ function renderOrdersList() {
         cardBorder = '#86EFAC';
       }
 
-      // عرض الملاحظات إذا كانت موجودة
+      // عرض ملاحظة العميل إن وجدت
+      let customerNotesHTML = '';
+      if (ord.customerNotes && ord.customerNotes.trim()) {
+        customerNotesHTML = `
+          <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; padding:6px 10px; font-size:12px; color:#1E40AF; margin-bottom:8px;">
+            💬 <b>ملاحظة العميل:</b> ${ord.customerNotes}
+          </div>
+        `;
+      }
+
+      // عرض ملاحظات الإدارة إن وجدت
       let notesHTML = '';
       if (ord.adminNotes && ord.adminNotes.trim()) {
         notesHTML = `
-          <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:6px 10px; font-size:12px; color:#92400E; margin-bottom:10px;">
+          <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:6px; padding:6px 10px; font-size:12px; color:#92400E; margin-bottom:8px;">
             📌 <b>ملاحظات الإدارة:</b> ${ord.adminNotes}
           </div>
         `;
@@ -215,7 +225,7 @@ function renderOrdersList() {
           <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed #CBD5E1; padding-top:8px;">
             <span style="font-size:12px; font-weight:800; color:#1E293B;">🎉 الحالة: تم التوصيل للعميل بنجاح</span>
             <div style="display:flex; gap:6px;">
-              <button onclick="openAdminEditOrderModal('${orderIdVal}')" style="padding:4px 8px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid #CBD5E1; background:#fff; color:#334155;">✏️ ملاحظات</button>
+              <button onclick="openAdminEditOrderModal('${orderIdVal}')" style="padding:4px 8px; font-size:11px; font-weight:700; border-radius:6px; cursor:pointer; border:1px solid #CBD5E1; background:#fff; color:#334155;">✏️ تعديل / ملاحظات</button>
               <button onclick="cancelAdminOrder('${orderIdVal}')" style="background:#FEE2E2; color:#DC2626; border:none; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">إلغاء ✖</button>
             </div>
           </div>
@@ -291,6 +301,7 @@ function renderOrdersList() {
             </table>
           </div>
 
+          ${customerNotesHTML}
           ${notesHTML}
           ${statusFooterHTML}
         </div>
