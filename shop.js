@@ -5,7 +5,10 @@ let allCategories = [];
 let cart = [];
 let currentCategory = 'all';
 let isSubmitting = false;
+
+// متغيرات حالة تعديل الطلب من المتجر مباشرة
 let currentEditingOrder = null;
+let isSelectingForOrder = false;
 
 // دالة فحص ما إذا كان الكتاب مضافاً خلال آخر 3 أيام (72 ساعة)
 function isNewBook(createdAt) {
@@ -122,6 +125,22 @@ function renderBooks() {
     const bookId = b.id || b._id;
     const isNew = isNewBook(b.createdAt);
 
+    // تغيير وظيفة الزر إذا كان العميل في وضع اختيار كتب لطلبه الحالي
+    let buttonHTML = '';
+    if (isSelectingForOrder) {
+      buttonHTML = `
+        <button onclick="addBookDirectlyToEditingOrder('${bookId}')" style="background:#0284c7; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
+          ➕ إضافة لهذا الطلب
+        </button>
+      `;
+    } else {
+      buttonHTML = `
+        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
+          أضف للسلة 🛒
+        </button>
+      `;
+    }
+
     return `
       <div class="book-card" style="background:#fff; border-radius:14px; padding:15px; border:1px solid #e2e8f0; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.03); position:relative;">
         <div style="cursor:pointer;" onclick="openBookModal('${bookId}')">
@@ -137,9 +156,7 @@ function renderBooks() {
             <span style="color:#16a34a; font-size:12px; font-weight:700; background:#dcfce7; padding:2px 8px; border-radius:12px;">متوفر: ${b.quantity}</span>
           </div>
         </div>
-        <button onclick="addToCart('${bookId}')" style="background:#1e293b; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:bold; cursor:pointer; width:100%;">
-          أضف للسلة 🛒
-        </button>
+        ${buttonHTML}
       </div>
     `;
   }).join('');
@@ -164,6 +181,21 @@ function openBookModal(bookId) {
           <img src="${imgUrl}" onclick="switchModalMainImage('${imgUrl}')" style="width:55px; height:55px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${idx === 0 ? '#2563eb' : '#cbd5e1'};" class="book-thumb-img">
         `).join('')}
       </div>
+    `;
+  }
+
+  let actionBtnInModal = '';
+  if (isSelectingForOrder) {
+    actionBtnInModal = `
+      <button onclick="addBookDirectlyToEditingOrder('${book.id || book._id}'); closeBookModal();" style="background:#0284c7; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; width:100%;">
+        ➕ إضافة هذا الكتاب لطلبي الحالي
+      </button>
+    `;
+  } else {
+    actionBtnInModal = `
+      <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; width:100%;">
+        إضافة هذا الكتاب إلى السلة 🛒
+      </button>
     `;
   }
 
@@ -198,9 +230,7 @@ function openBookModal(bookId) {
           <span style="font-size:12px; color:#16a34a; font-weight:700; background:#dcfce7; padding:4px 10px; border-radius:8px;">متوفر: ${book.quantity} نسخ</span>
         </div>
 
-        <button onclick="addToCart('${book.id || book._id}'); closeBookModal();" style="background:#16a34a; color:#fff; border:none; padding:12px; border-radius:10px; font-weight:800; font-size:14px; cursor:pointer; width:100%;">
-          إضافة هذا الكتاب إلى السلة 🛒
-        </button>
+        ${actionBtnInModal}
       </div>
     </div>
   `;
@@ -455,7 +485,7 @@ function searchMyOrders() {
   }).join('');
 }
 
-// فتح مودال تعديل الطلب للعميل مع تجهيز قائمة الكتب المتاحة للإضافة
+// فتح مودال تعديل الطلب
 function openEditOrderModal(orderId) {
   const order = allOrders.find(o => (o.orderId || o.id) === orderId);
   if (!order) return;
@@ -472,36 +502,30 @@ function openEditOrderModal(orderId) {
   const editNotesElem = document.getElementById('editOrderNotes');
   if (editNotesElem) editNotesElem.value = order.customerNotes || '';
 
-  // تعبئة خيارات الكتب المتوفرة في المتجر
-  const selectElem = document.getElementById('editOrderAddBookSelect');
-  if (selectElem) {
-    const availableBooks = allBooks.filter(b => b.quantity > 0);
-    selectElem.innerHTML = '<option value="">-- اختر كتاباً لإضافته إلى الطلب --</option>' +
-      availableBooks.map(b => {
-        const bId = b.id || b._id;
-        return `<option value="${bId}">${b.title} (${b.price} د.أ) - متوفر: ${b.quantity}</option>`;
-      }).join('');
-  }
-
   renderEditOrderItems();
   document.getElementById('editOrderModal').style.display = 'flex';
 }
 
-// إضافة كتاب جديد إلى قائمة أصناف الطلب
-function addBookToEditingOrder() {
+// تصفح المتجر لاختيار وإضافة كتب إلى الطلب
+function browseStoreToAddBooks() {
+  document.getElementById('editOrderModal').style.display = 'none';
+  document.getElementById('myOrdersModal').style.display = 'none';
+  
+  isSelectingForOrder = true;
+  const banner = document.getElementById('editModeBanner');
+  if (banner) banner.style.display = 'flex';
+
+  renderBooks();
+  window.scrollTo({ top: 300, behavior: 'smooth' });
+}
+
+// إضافة كتاب مباشرة إلى قائمة الطلب الجاري تعديله
+function addBookDirectlyToEditingOrder(bookId) {
   if (!currentEditingOrder) return;
-  const selectElem = document.getElementById('editOrderAddBookSelect');
-  const selectedBookId = selectElem?.value;
-
-  if (!selectedBookId) {
-    return alert('يرجى اختيار كتاب أولاً من القائمة');
-  }
-
-  const book = allBooks.find(b => (b.id || b._id) === selectedBookId);
+  const book = allBooks.find(b => (b.id || b._id) === bookId);
   if (!book) return;
 
-  const existingItem = currentEditingOrder.items.find(it => (it.id || it._id) === selectedBookId || it.title === book.title);
-
+  const existingItem = currentEditingOrder.items.find(it => (it.id || it._id) === bookId || it.title === book.title);
   if (existingItem) {
     existingItem.qty = (parseInt(existingItem.qty) || 1) + 1;
   } else {
@@ -515,13 +539,27 @@ function addBookToEditingOrder() {
     });
   }
 
-  selectElem.value = '';
+  alert(`✅ تمت إضافة كتاب "${book.title}" إلى طلبك!`);
+}
+
+// العودة إلى نافذة التعديل
+function resumeEditOrderModal() {
+  isSelectingForOrder = false;
+  const banner = document.getElementById('editModeBanner');
+  if (banner) banner.style.display = 'none';
+
+  renderBooks();
   renderEditOrderItems();
+  document.getElementById('editOrderModal').style.display = 'flex';
 }
 
 function closeEditOrderModal() {
   document.getElementById('editOrderModal').style.display = 'none';
   currentEditingOrder = null;
+  isSelectingForOrder = false;
+  const banner = document.getElementById('editModeBanner');
+  if (banner) banner.style.display = 'none';
+  renderBooks();
 }
 
 function renderEditOrderItems() {
@@ -573,7 +611,7 @@ function removeEditItem(idx) {
   renderEditOrderItems();
 }
 
-// حفظ تعديل الطلب من قبل العميل
+// حفظ تعديل الطلب
 async function saveCustomerOrderEdits() {
   if (!currentEditingOrder) return;
 
