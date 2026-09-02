@@ -53,6 +53,7 @@ const Order = mongoose.model('Order', new mongoose.Schema({
   date: String,
   time: String,
   status: { type: String, default: 'جديد' },
+  adminNotes: { type: String, default: '' }, // حقل ملاحظات الأدمن
   createdAt: String
 }));
 
@@ -60,7 +61,6 @@ const Category = mongoose.model('Category', new mongoose.Schema({
   name: { type: String, unique: true }
 }));
 
-// جلب البيانات مع الكاش السريع
 let cachedData = null;
 
 async function getFullData(forceRefresh = false) {
@@ -68,7 +68,6 @@ async function getFullData(forceRefresh = false) {
     return cachedData;
   }
 
-  // استعلام واحد فائق السرعة يستثني تماماً نصوص الصور Base64
   const books = await Book.find({ quantity: { $gt: 0 } }, '-image -images').sort({ createdAt: -1 }).lean();
   const orders = await Order.find().sort({ _id: -1 }).lean();
   let categories = await Category.find().lean();
@@ -102,12 +101,10 @@ async function getFullData(forceRefresh = false) {
   return cachedData;
 }
 
-// مسارات الصفحات
 app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 app.get('/', (req, res) => res.redirect('/shop'));
 
-// مسار إرسال صورة كتاب محدد حسب الفهرس بسرعة عالية
 app.get('/api/book-image/:id/:index?', async (req, res) => {
   try {
     const index = parseInt(req.params.index) || 0;
@@ -138,7 +135,6 @@ app.get('/api/book-image/:id/:index?', async (req, res) => {
   }
 });
 
-// مسار قراءة البيانات السريع
 app.get('/api/data', async (req, res) => {
   try {
     res.json(await getFullData());
@@ -147,7 +143,6 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
-// إضافة قسم جديد
 app.post('/api/categories', async (req, res) => {
   const { name } = req.body;
   if (name) {
@@ -157,7 +152,6 @@ app.post('/api/categories', async (req, res) => {
   res.json({ success: true });
 });
 
-// إضافة كتاب جديد
 app.post('/api/books', async (req, res) => {
   const { title, author, price, categories, category, quantity, image, images, description } = req.body;
   const selectedCats = Array.isArray(categories) && categories.length > 0 ? categories : [category || 'عام'];
@@ -181,7 +175,6 @@ app.post('/api/books', async (req, res) => {
   res.json({ success: true, book });
 });
 
-// تعديل بيانات الكتاب بالكامل
 app.put('/api/books/:id', async (req, res) => {
   try {
     const { title, author, price, categories, category, quantity, description, image, images } = req.body;
@@ -221,7 +214,6 @@ app.put('/api/books/:id', async (req, res) => {
   }
 });
 
-// تعديل كمية كتاب
 app.post('/api/books/quantity', async (req, res) => {
   const { bookId, change } = req.body;
   const book = await Book.findById(bookId);
@@ -234,7 +226,6 @@ app.post('/api/books/quantity', async (req, res) => {
   res.json({ success: true });
 });
 
-// حذف كتاب نهائياً
 app.post('/api/books/delete', async (req, res) => {
   const { bookId } = req.body;
   await Book.findByIdAndDelete(bookId);
@@ -242,7 +233,6 @@ app.post('/api/books/delete', async (req, res) => {
   res.json({ success: true });
 });
 
-// إنشاء طلب جديد
 app.post('/api/order', async (req, res) => {
   const { customerName, phone, address, city, items } = req.body;
 
@@ -273,6 +263,7 @@ app.post('/api/order', async (req, res) => {
     date: dateKey,
     time: timeKey,
     status: 'جديد',
+    adminNotes: '',
     createdAt: `${dateKey} - ${timeKey}`
   });
 
@@ -285,14 +276,10 @@ app.post('/api/order', async (req, res) => {
   res.json({ success: true, order: newOrder });
 });
 
-// تعديل الطلب من قبل العميل (تحديث العناوين، تعديل كميات أو حذف كتب)
+// تعديل الطلب (مشترك بين العميل والأدمن، ويدعم حفظ الملاحظات)
 app.post('/api/orders/update', async (req, res) => {
   try {
-    const { orderId, customerName, phone, city, address, items } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'لا يمكن حفظ الطلب بدون أي كتاب. يمكنك إلغاء الطلب بالكامل بدلاً من ذلك.' });
-    }
+    const { orderId, customerName, phone, city, address, items, adminNotes, isAdmin } = req.body;
 
     let order = await Order.findOne({ orderId });
     if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
@@ -300,52 +287,58 @@ app.post('/api/orders/update', async (req, res) => {
     }
 
     if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-    if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'لا يمكن تعديل طلب ملغي' });
-    if (order.status === 'تم التجهيز' || order.status === 'تم التوصيل') {
-      return res.status(400).json({ success: false, message: 'عذراً، تم البدء بتجهيز أو شحن طلبك ولا يمكن تعديله حالياً' });
-    }
-
-    // 1. إعادة الكتب القديمة الخاصة بهذا الطلب للمخزون
-    for (const oldItem of order.items) {
-      const bookId = oldItem.id || oldItem._id;
-      if (mongoose.Types.ObjectId.isValid(bookId)) {
-        await Book.findByIdAndUpdate(bookId, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
-      } else if (oldItem.title) {
-        await Book.findOneAndUpdate({ title: oldItem.title }, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
+    
+    // إذا لم يكن أدمن: لا يسمح بالتعديل إذا كان مجهزاً أو ملغياً
+    if (!isAdmin) {
+      if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'لا يمكن تعديل طلب ملغي' });
+      if (order.status === 'تم التجهيز' || order.status === 'تم التوصيل') {
+        return res.status(400).json({ success: false, message: 'عذراً، تم البدء بتجهيز أو شحن طلبك ولا يمكن تعديله حالياً' });
       }
     }
 
-    // 2. فحص وتأكيد وفرة الكميات الجديدة وخصمها من المخزون
-    for (const newItem of items) {
-      const bookId = newItem.id || newItem._id;
-      let book = null;
-      if (mongoose.Types.ObjectId.isValid(bookId)) {
-        book = await Book.findById(bookId);
-      } else if (newItem.title) {
-        book = await Book.findOne({ title: newItem.title });
-      }
-
-      const reqQty = parseInt(newItem.qty) || 1;
-      if (book) {
-        if (book.quantity < reqQty) {
-          io.emit('data_updated', await getFullData(true));
-          return res.status(400).json({ 
-            success: false, 
-            message: `عذراً، الكمية المتوفرة من كتاب "${book.title}" هي ${book.quantity} فقط.` 
-          });
+    if (items && items.length > 0) {
+      // 1. إعادة الكتب القديمة للمخزون
+      for (const oldItem of order.items) {
+        const bookId = oldItem.id || oldItem._id;
+        if (mongoose.Types.ObjectId.isValid(bookId)) {
+          await Book.findByIdAndUpdate(bookId, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
+        } else if (oldItem.title) {
+          await Book.findOneAndUpdate({ title: oldItem.title }, { $inc: { quantity: parseInt(oldItem.qty) || 1 } });
         }
-        book.quantity = Math.max(0, book.quantity - reqQty);
-        await book.save();
       }
+
+      // 2. خصم الكميات الجديدة
+      for (const newItem of items) {
+        const bookId = newItem.id || newItem._id;
+        let book = null;
+        if (mongoose.Types.ObjectId.isValid(bookId)) {
+          book = await Book.findById(bookId);
+        } else if (newItem.title) {
+          book = await Book.findOne({ title: newItem.title });
+        }
+
+        const reqQty = parseInt(newItem.qty) || 1;
+        if (book) {
+          if (!isAdmin && book.quantity < reqQty) {
+            io.emit('data_updated', await getFullData(true));
+            return res.status(400).json({ 
+              success: false, 
+              message: `عذراً، الكمية المتوفرة من كتاب "${book.title}" هي ${book.quantity} فقط.` 
+            });
+          }
+          book.quantity = Math.max(0, book.quantity - reqQty);
+          await book.save();
+        }
+      }
+      order.items = items;
+      order.total = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.qty)), 0) + (order.deliveryFee || 2);
     }
 
-    // 3. تحديث بيانات الطلب والمجموع الكلي
-    order.customerName = customerName ? customerName.trim() : order.customerName;
-    order.phone = phone ? phone.trim() : order.phone;
-    order.city = city ? city.trim() : order.city;
-    order.address = address !== undefined ? address.trim() : order.address;
-    order.items = items;
-    order.total = items.reduce((sum, i) => sum + (parseFloat(i.price) * parseInt(i.qty)), 0) + (order.deliveryFee || 2);
+    if (customerName) order.customerName = customerName.trim();
+    if (phone) order.phone = phone.trim();
+    if (city) order.city = city.trim();
+    if (address !== undefined) order.address = address.trim();
+    if (adminNotes !== undefined) order.adminNotes = adminNotes.trim();
 
     await order.save();
 
@@ -357,9 +350,11 @@ app.post('/api/orders/update', async (req, res) => {
   }
 });
 
-// إلغاء الطلب واسترجاع الكتاب
+// إلغاء الطلب واسترجاع الكتب للمخزون
 app.post('/api/orders/cancel', async (req, res) => {
   const targetId = req.body.orderId || req.body.id;
+  const isAdmin = req.body.isAdmin || false;
+
   let order = await Order.findOne({ orderId: targetId });
   if (!order && mongoose.Types.ObjectId.isValid(targetId)) {
     order = await Order.findById(targetId);
@@ -367,8 +362,11 @@ app.post('/api/orders/cancel', async (req, res) => {
 
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
   if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
-  if (order.status === 'تم التجهيز') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه' });
-  if (order.status === 'تم التوصيل') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب بعد إتمام التوصيل' });
+  
+  if (!isAdmin) {
+    if (order.status === 'تم التجهيز') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب لأنه تم تجهيزه' });
+    if (order.status === 'تم التوصيل') return res.status(400).json({ success: false, message: 'لا يمكن إلغاء الطلب بعد إتمام التوصيل' });
+  }
 
   for (const item of order.items) {
     let existing = null;
@@ -423,11 +421,7 @@ app.post('/api/orders/status', async (req, res) => {
   }
 
   if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
-  if (order.status === 'ملغي') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
-  
-  if (order.status === 'تم التوصيل') {
-    return res.status(400).json({ success: false, message: 'لا يمكن تعديل الطلب بعد إتمام التوصيل' });
-  }
+  if (order.status === 'ملغي' && newStatus !== 'جديد') return res.status(400).json({ success: false, message: 'تم إلغاء هذا الطلب مسبقاً' });
 
   order.status = newStatus;
   await order.save();
