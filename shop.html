@@ -156,7 +156,7 @@
       <div class="form-group"><label>المحافظة والمنطقة *</label><input type="text" id="custCity" placeholder="مثال: عمان - الجبيهة" required></div>
       <div class="form-group"><label>العنوان بالتفصيل</label><input type="text" id="custAddress" placeholder="اسم الشارع، رقم البناية، معالم قريبة"></div>
 
-      <!-- خانة ملاحظات العميل الجديدة -->
+      <!-- خانة ملاحظات العميل -->
       <div class="form-group" style="margin-top:10px;">
         <label style="font-size:12px; font-weight:700; color:#334155;">ملاحظات إضافية على الطلب (اختياري)</label>
         <textarea id="custNotes" rows="2" placeholder="اكتب ملاحظاتك هنا (مثل: أوقات الاستلام المفضلة، تعليمات التوصيل...)" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; box-sizing:border-box; font-family:inherit; font-size:13px;"></textarea>
@@ -204,7 +204,17 @@
 
       <div style="margin-bottom:14px;">
         <label style="display:block; font-size:13px; font-weight:700; color:#334155; margin-bottom:6px;">📚 الكتب في هذا الطلب:</label>
-        <div id="editOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:180px; overflow-y:auto;"></div>
+        <div id="editOrderItemsList" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:160px; overflow-y:auto; margin-bottom:10px;"></div>
+        
+        <!-- قسم إضافة كتاب جديد للطلب -->
+        <div style="display:flex; gap:8px;">
+          <select id="editOrderAddBookSelect" style="flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; background:#fff;">
+            <option value="">-- اختر كتاباً لإضافته إلى الطلب --</option>
+          </select>
+          <button type="button" onclick="addBookToEditingOrder()" style="background:#10b981; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-weight:bold; font-size:12px; cursor:pointer; white-space:nowrap;">
+            ➕ إضافة للطلب
+          </button>
+        </div>
       </div>
 
       <div class="form-group" style="margin-bottom:10px;">
